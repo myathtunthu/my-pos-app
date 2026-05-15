@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import {
-  getFirestore, collection, doc, onSnapshot, deleteDoc, addDoc, setDoc, writeBatch, runTransaction, getDocs
+  getFirestore, collection, doc, onSnapshot, deleteDoc, addDoc, setDoc, writeBatch, runTransaction, getDocs, query, where
 } from 'firebase/firestore';
 import {
-  getAuth, signInAnonymously, onAuthStateChanged
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from 'firebase/auth';
 import {
   PlusCircle, Trash2, Search, X, ArrowUpRight, ArrowDownRight, Settings as SettingsIcon, Plus,
@@ -12,7 +12,7 @@ import {
   LayoutDashboard, Database, BarChart3, CheckCircle, PieChart,
   Receipt, Download, Upload, FileText, AlertCircle, Archive,
   ShieldAlert, MonitorPlay, Package, Users, Boxes, DollarSign,
-  Edit3, Save, AlertTriangle, LogOut, Eye, EyeOff, ShoppingCart, Tag, ShieldCheck, Cloud, Lock
+  Edit3, Save, AlertTriangle, LogOut, Eye, EyeOff, ShoppingCart, Tag, ShieldCheck, Cloud, Lock, Volume2
 } from 'lucide-react';
 
 // ─── Permission Options ─────────────────────────────────────────────────────
@@ -148,6 +148,22 @@ export default function App() {
     setTimeout(() => setToast(null), 4500);
   }, []);
 
+  // ── Beep Sound ──
+  const playBeep = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.frequency.value = 800;
+      oscillator.type = 'square';
+      gainNode.gain.value = 0.1;
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.15);
+    } catch (e) {}
+  }, []);
+
   const [setupMode, setSetupMode] = useState(null);
   const [setupDone, setSetupDone] = useState(false);
 
@@ -160,23 +176,33 @@ export default function App() {
     })();
   }, [fbUser, db, appId]);
 
- const handleSetup = async (username, password, shopName) => {
-  const tenantId = `tenant_${username.trim()}_${Date.now()}`;
-  const userRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), {
-    username: username.trim(),
-    password: simpleHash(password),
-    role: 'admin',
-    permissions: [],
-    tenantId: tenantId,
-    createdAt: Date.now(),
-  });
-  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'pos_settings', tenantId), {
-    shopName: shopName.trim() || `${username.trim()}'s POS`,
-  });
-  setCurrentUser(null); // Auto logout to show login screen
-  setSetupDone(true);
-  showToast('✅ Admin အကောင့် ဖန်တီးပြီးပါပြီ။ Login ပြန်ဝင်ပါ။', 'ok');
-};
+  const handleSetup = async (username, password, shopName) => {
+    // Check duplicate username
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), where('username', '==', username.trim()));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      showToast('❌ Username ရှိပြီးသားပါ။ တခြားအမည် သုံးပါ။', 'err');
+      return;
+    }
+
+    const tenantId = `tenant_${username.trim()}_${Date.now()}`;
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), {
+      username: username.trim(),
+      password: simpleHash(password),
+      role: 'admin',
+      permissions: [],
+      tenantId: tenantId,
+      email: username.trim() + '@pos.local',
+      createdAt: Date.now(),
+    });
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'pos_settings', tenantId), {
+      shopName: shopName.trim() || `${username.trim()}'s POS`,
+    });
+    setCurrentUser(null);
+    setSetupDone(true);
+    showToast('✅ Admin အကောင့် ဖန်တီးပြီးပါပြီ။ Login ပြန်ဝင်ပါ။', 'ok');
+  };
+
   const currentTenant = currentUser?.tenantId;
   const posUsers = useMemo(() => allUsers.filter(u => u.tenantId === currentTenant), [allUsers, currentTenant]);
   const records = useMemo(() => allRecords.filter(r => r.tenantId === currentTenant), [allRecords, currentTenant]);
@@ -247,17 +273,41 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Firebase Auth Listener
   useEffect(() => {
-    signInAnonymously(auth);
-    return onAuthStateChanged(auth, u => { setFbUser(u); if (!u) setAuthLoading(false); });
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      setFbUser(firebaseUser);
+      if (!firebaseUser) {
+        setCurrentUser(null);
+        setAuthLoading(false);
+      }
+    });
+    return () => unsub();
   }, [auth]);
 
+  // Lookup POS user after Firebase auth
+  useEffect(() => {
+    if (!fbUser) return;
+    (async () => {
+      const email = fbUser.email;
+      if (email) {
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), where('email', '==', email));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const docData = snap.docs[0].data();
+          setCurrentUser({ id: snap.docs[0].id, ...docData });
+        }
+      }
+      setAuthLoading(false);
+    })();
+  }, [fbUser, db, appId]);
+
+  // Real-time Sync
   useEffect(() => {
     if (!fbUser) return;
     const b = ['artifacts', appId, 'public', 'data'];
     const u1 = onSnapshot(collection(db, ...b, 'pos_users'), s => {
       setAllUsers(s.docs.map(d => ({ id: d.id, ...d.data() })));
-      setAuthLoading(false);
     });
     const u2 = onSnapshot(collection(db, ...b, 'pos_records'), s => {
       setAllRecords(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
@@ -291,6 +341,7 @@ export default function App() {
     } else setUnitPrice('');
   }, [selProdId, products, entryTab]);
 
+  // Scanner Effect with Beep
   useEffect(() => {
     if (!showScanner) return;
     if (!window.Html5Qrcode) { showToast('Scanner library မရှိပါ', 'err'); setShowScanner(false); return; }
@@ -303,6 +354,7 @@ export default function App() {
         await html5QrCode.start(
           { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
+            playBeep();
             const prod = products.find(p => p.barcode === decodedText.trim() || p.id === decodedText.trim());
             if (prod) {
               const price = entryTab === 'Sale' ? (prod.price || 0) : (prod.costPrice || 0);
@@ -323,7 +375,7 @@ export default function App() {
       } catch { showToast('Camera မရပါ', 'err'); setShowScanner(false); }
     })();
     return () => { isStopping.current = true; if (scannerRef.current) { scannerRef.current.stop().catch(() => {}); scannerRef.current = null; } };
-  }, [showScanner]);
+  }, [showScanner, playBeep]);
 
   const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);
   const lowStock = useMemo(() => products.filter(p => (Number(p.stock) || 0) <= (Number(p.minStock) || 5)), [products]);
@@ -416,6 +468,7 @@ export default function App() {
 
   const handleBarcodeSubmit = e => {
     e.preventDefault();
+    playBeep();
     const prod = products.find(p => p.barcode === barcodeInput.trim() || p.id === barcodeInput.trim());
     if (prod) {
       const price = entryTab === 'Sale' ? (prod.price || 0) : (prod.costPrice || 0);
@@ -644,6 +697,12 @@ export default function App() {
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
     .map(r => { histBal += r.type === 'Sale' ? (Number(r.amount) || 0) : -(Number(r.amount) || 0); return { ...r, runningBal: histBal }; }).reverse();
 
+  // Logout handler
+  const handleLogout = async () => {
+    await signOut(auth);
+    setCurrentUser(null);
+  };
+
   if (setupMode === null || authLoading || appLoading) return (
     <div className="min-h-[100dvh] bg-[#080c14] flex flex-col items-center justify-center">
       <Cpu className="text-cyan-500 animate-pulse mb-5" size={64} />
@@ -652,36 +711,30 @@ export default function App() {
   );
 
   const isSecretSetup = window.location.pathname === '/mttadminacc';
+  const masterAdmin = process.env.REACT_APP_MASTER_ADMIN || 'admin';
 
-// Protected Setup: Only YOU (specific admin) can create new admins
-const masterAdmin = process.env.REACT_APP_MASTER_ADMIN || 'admin';
+  const isMasterAdmin = currentUser &&
+    (currentUser.tenantId === 'tenant_admin' || currentUser.username === masterAdmin);
 
-const isMasterAdmin = currentUser && 
-  (currentUser.tenantId === 'tenant_admin' || currentUser.username === masterAdmin);
+  if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmin) {
+    return <SetupScreen onSetup={handleSetup} />;
+  }
 
-if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmin) {
-  return <SetupScreen onSetup={handleSetup} />;
-}
-
-// If someone else tries to access secret setup, show error
-if (isSecretSetup && currentUser && !isMasterAdmin) {
-  return (
-    <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
-      <div className="bg-[#0d1120] p-10 rounded-3xl border-2 border-rose-500/25 text-center max-w-md w-full">
-        <ShieldAlert size={64} className="mx-auto text-rose-500 mb-6" />
-        <h2 className="text-3xl font-black text-white mb-4">ဝင်ခွင့်မရှိပါ</h2>
-        <p className="text-lg text-slate-400 mb-8">Admin အကောင့်အသစ် ဖန်တီးခွင့် မရှိပါ။<br/>သက်ဆိုင်ရာသို့ ဆက်သွယ်ပါ။</p>
-        <button onClick={() => setCurrentUser(null)} className="w-full py-4 bg-slate-800 text-white rounded-xl font-black text-xl">Login ပြန်ဝင်မည်</button>
+  if (isSecretSetup && currentUser && !isMasterAdmin) {
+    return (
+      <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
+        <div className="bg-[#0d1120] p-10 rounded-3xl border-2 border-rose-500/25 text-center max-w-md w-full">
+          <ShieldAlert size={64} className="mx-auto text-rose-500 mb-6" />
+          <h2 className="text-3xl font-black text-white mb-4">ဝင်ခွင့်မရှိပါ</h2>
+          <p className="text-lg text-slate-400 mb-8">Admin အကောင့်အသစ် ဖန်တီးခွင့် မရှိပါ။<br/>သက်ဆိုင်ရာသို့ ဆက်သွယ်ပါ။</p>
+          <button onClick={handleLogout} className="w-full py-4 bg-slate-800 text-white rounded-xl font-black text-xl">Login ပြန်ဝင်မည်</button>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-  // First-time setup when no admin exists
   if (setupMode && fbUser && !setupDone && !isSecretSetup) return <SetupScreen onSetup={handleSetup} />;
-  
-  // If not logged in, show login
-  if (!currentUser) return <AuthScreen allUsers={allUsers} onLogin={setCurrentUser} />;
+  if (!currentUser) return <AuthScreen auth={auth} db={db} appId={appId} onLogin={setCurrentUser} showToast={showToast} />;
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#080c14] pb-[110px] text-slate-100 antialiased font-sans overflow-x-hidden">
@@ -714,7 +767,7 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
         </div>
         <div className="flex items-center gap-4">
           {hasPermission('settings') && <button onClick={()=>setShowSettings(true)} className="p-4 text-cyan-400 hover:text-cyan-200 transition-colors rounded-xl hover:bg-white/5"><SettingsIcon size={28}/></button>}
-          <button onClick={()=>setCurrentUser(null)} className="p-4 text-rose-400 hover:text-rose-200 transition-colors rounded-xl hover:bg-white/5"><LogOut size={28}/></button>
+          <button onClick={handleLogout} className="p-4 text-rose-400 hover:text-rose-200 transition-colors rounded-xl hover:bg-white/5"><LogOut size={28}/></button>
         </div>
       </nav>
 
@@ -761,7 +814,7 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                     <p className="text-sm font-black text-slate-500 uppercase tracking-widest">ပစ္စည်းရှာဖွေထည့်သွင်းမည်</p>
 
                     {/* Barcode Box + Scan Button in one row */}
-                    <div className="flex items-stretch gap-3 w-full">
+                    <div className="flex items-stretch gap-3">
                       <div className="relative flex-1 min-w-0">
                         <ScanBarcode size={24} className="absolute left-5 top-5 text-blue-400 z-10" />
                         <input
@@ -774,7 +827,7 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                       </div>
                       <button
                         onClick={()=>setShowScanner(true)}
-                        className="px-6 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"
+                        className="px-5 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"
                       >
                         <ScanBarcode size={28} />
                       </button>
@@ -785,7 +838,7 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                       {categories.map(c=><button key={c} onClick={()=>setSelCategory(c)} className={`px-6 py-3.5 rounded-xl text-base font-black whitespace-nowrap transition-all ${selCategory===c?'bg-cyan-600 text-white':'bg-[#0d1120] text-slate-400 border-2 border-white/5 hover:border-cyan-500/30'}`}>{c}</button>)}
                     </div>
 
-                    {/* Search Box (ပစ္စည်းအမည်) - သီးသန့် */}
+                    {/* Search Box */}
                     <div className="relative" ref={searchRef}>
                       <div className="relative">
                         <Search size={24} className="absolute left-5 top-5 text-cyan-500 z-10" />
@@ -841,11 +894,9 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                               <div className="flex-1 min-w-0">
                                 <p className="text-xl font-black text-white truncate">{item.name}</p>
                                 <p className="text-base text-cyan-400 font-bold mt-1.5">{fmt(item.unitPrice)} × {item.quantity} = {fmt(item.unitPrice*item.quantity)} Ks</p>
-                                {item.costPrice>0 && entryTab==='Sale' && <p className="text-sm text-emerald-600 mt-1">Margin: +{fmt((item.unitPrice-item.costPrice)*item.quantity)} Ks</p>}
                               </div>
                               <button onClick={()=>removeFromCart(item.id)} className="text-slate-600 hover:text-rose-400 ml-4 p-3 flex-shrink-0"><X size={24}/></button>
                             </div>
-                            {/* Item Discount */}
                             {entryTab==='Sale' && (
                               <div className="flex items-center gap-4 mt-4 pt-4 border-t-2 border-white/5">
                                 <span className="text-sm font-black text-amber-500/80 uppercase flex items-center gap-2"><Tag size={18}/> Disc (Ks):</span>
@@ -856,7 +907,6 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                         ))}
                       </div>
 
-                      {/* Global Discount (Sale Only) */}
                       {entryTab==='Sale' && (
                         <div className="flex gap-4 items-end">
                           <div className="flex-1">
@@ -870,7 +920,6 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                         </div>
                       )}
 
-                      {/* Totals */}
                       <div className="bg-black/40 p-6 rounded-2xl space-y-3 border-2 border-cyan-500/10">
                         <div className="flex justify-between text-lg text-slate-500"><span>Subtotal</span><span className="font-bold">{fmt(cartTotals.sub)} Ks</span></div>
                         {cartTotals.itemDiscounts>0 && <div className="flex justify-between text-lg text-amber-500"><span>Item Discounts</span><span className="font-bold">−{fmt(cartTotals.itemDiscounts)} Ks</span></div>}
@@ -878,7 +927,6 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                         <div className="flex justify-between text-3xl font-black text-cyan-300 pt-4 mt-3 border-t-2 border-white/10"><span>TOTAL</span><span>{fmt(cartTotals.total)} Ks</span></div>
                       </div>
 
-                      {/* Payment Type (Sale Only) */}
                       {entryTab==='Sale' && (
                         <div className="grid grid-cols-2 gap-5">
                           <button onClick={()=>setPaymentType('Cash')} className={`py-6 rounded-2xl text-lg font-black transition-all border-2 ${paymentType==='Cash'?'bg-cyan-500/20 text-cyan-300 border-cyan-500/40':'bg-black/40 text-slate-500 border-white/5 hover:border-cyan-500/20'}`}>💵 လက်ငင်း</button>
@@ -990,7 +1038,6 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                         </div>
                         <p className="text-lg text-slate-500 font-bold mt-2.5 truncate">{r.item||'−'}</p>
                         <p className="text-sm text-slate-600 font-mono mt-2">{r.date||'−'}</p>
-                        {hasPermission('view_reports') && r.type==='Sale' && (r.profit||0)>0 && <p className="text-sm text-emerald-600 font-bold mt-1.5">Profit: +{fmt(r.profit)} Ks</p>}
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className={`font-black text-3xl ${r.type==='Purchase'||r.type==='Expense'?'text-orange-400':'text-cyan-400'}`}>
@@ -998,7 +1045,7 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
                           {fmt(r.amount)}
                         </p>
                         {(Number(r.remainingDebt)||0)>0 && <span className="text-base font-black text-rose-400 bg-rose-500/10 px-4 py-1.5 rounded-lg block mt-3">ကျန်: {fmt(r.remainingDebt)}</span>}
-                        <div className="flex gap-4 justify-end mt-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-4 justify-end mt-4">
                           {['Sale','Purchase','Payment'].includes(r.type) && <button onClick={()=>setReceiptModal({show:true,record:r})} className="p-3 text-slate-500 hover:text-cyan-400 transition-colors rounded-xl bg-black/40"><Receipt size={22}/></button>}
                           {hasPermission('delete_records') && <button onClick={()=>setConfirmDel(r)} className="p-3 text-slate-500 hover:text-rose-500 transition-colors rounded-xl bg-black/40"><Trash2 size={22}/></button>}
                         </div>
@@ -1020,7 +1067,7 @@ if (isSecretSetup && currentUser && !isMasterAdmin) {
               {hasPermission('manage_users') && <button onClick={()=>setAdminTab('Users')} className={`py-5 text-base font-black rounded-xl transition-all flex items-center justify-center gap-2 ${adminTab==='Users'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300'}`}>👥 Users</button>}
             </div>
 
-            {adminTab==='Products' && hasPermission('manage_products') && <ProductsTab products={products} db={db} appId={appId} currentTenant={currentTenant} showToast={showToast} />}
+            {adminTab==='Products' && hasPermission('manage_products') && <ProductsTab products={products} db={db} appId={appId} currentTenant={currentTenant} showToast={showToast} playBeep={playBeep} />}
             {adminTab==='Inventory' && (hasPermission('manage_inventory')||hasPermission('view_inventory')) && <InventoryTab products={products} db={db} appId={appId} hasPermission={hasPermission} sendInventoryReport={sendInventoryReport} />}
             {adminTab==='Users' && hasPermission('manage_users') && <UsersTab posUsers={posUsers} db={db} appId={appId} currentTenant={currentTenant} showToast={showToast} currentUser={currentUser} />}
           </div>
@@ -1094,29 +1141,83 @@ function SetupScreen({ onSetup }) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// AUTH SCREEN (Login Only)
+// AUTH SCREEN (Email/Password Login)
 // ════════════════════════════════════════════════════════════════
-function AuthScreen({ allUsers, onLogin }) {
-  const [username, setUsername] = useState('');
+function AuthScreen({ auth, db, appId, onLogin, showToast }) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
-  const handleLogin = e => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const user = allUsers.find(u => u.username === username.trim() && u.password === simpleHash(password));
-    if (user) onLogin(user);
-    else setErr('Username သို့မဟုတ် Password မှားနေပါသည်');
+    setErr('');
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        // Login
+        const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+        // Lookup POS user
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), where('email', '==', email.trim()));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const docData = snap.docs[0].data();
+          onLogin({ id: snap.docs[0].id, ...docData });
+        } else {
+          setErr('ဒီ Email ဖြင့် အကောင့်မရှိပါ။ Admin ကို ဆက်သွယ်ပါ။');
+          await signOut(auth);
+        }
+      } else {
+        // Register – only allowed via secret setup, not here
+        setErr('အကောင့်အသစ် ဖွင့်ခွင့်မရှိပါ။ Admin ကို ဆက်သွယ်ပါ။');
+        setLoading(false);
+        return;
+      }
+    } catch (error) {
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        setErr('Email သို့မဟုတ် Password မှားနေပါသည်');
+      } else if (error.code === 'auth/invalid-email') {
+        setErr('Email ပုံစံမမှန်ပါ');
+      } else if (error.code === 'auth/too-many-requests') {
+        setErr('ကြိုးစားမှု များလွန်းပါသည်။ ခဏစောင့်ပါ။');
+      } else {
+        setErr('Login မအောင်မြင်ပါ။ ထပ်စမ်းကြည့်ပါ။');
+      }
+      setLoading(false);
+    }
   };
+
   return (
     <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
       <div className="bg-[#0d1120] p-10 sm:p-12 rounded-3xl border-2 border-cyan-500/25 shadow-[0_0_50px_rgba(6,182,212,0.2)] w-full max-w-lg">
-        <div className="text-center mb-10"><MonitorPlay size={64} className="mx-auto text-cyan-500 mb-6"/><h2 className="text-4xl font-black text-white uppercase">Cyber POS</h2><p className="text-lg text-cyan-400 font-bold mt-3">PRO VERSION 18</p></div>
+        <div className="text-center mb-10">
+          <MonitorPlay size={64} className="mx-auto text-cyan-500 mb-6"/>
+          <h2 className="text-4xl font-black text-white uppercase">Cyber POS</h2>
+          <p className="text-lg text-cyan-400 font-bold mt-3">PRO VERSION 19</p>
+        </div>
+
+        <div className="flex bg-black/40 rounded-xl p-1.5 mb-8 border-2 border-white/5">
+          <button onClick={() => { setIsLogin(true); setErr(''); }} className={`flex-1 py-4 text-lg font-black rounded-lg transition-all ${isLogin ? 'bg-cyan-600 text-white' : 'text-slate-500'}`}>Login</button>
+          <button onClick={() => { setIsLogin(false); setErr(''); }} className={`flex-1 py-4 text-lg font-black rounded-lg transition-all ${!isLogin ? 'bg-cyan-600 text-white' : 'text-slate-500'}`}>Register</button>
+        </div>
+
         {err && <p className="text-lg font-bold text-rose-400 bg-rose-500/10 border-2 border-rose-500/20 p-5 rounded-xl mb-8 text-center">{err}</p>}
-        <form onSubmit={handleLogin} className="space-y-6">
-          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Username" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-          <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show?<EyeOff size={30}/>:<Eye size={30}/>}</button></div>
-          <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20">Login ဝင်မည်</button>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+          <div className="relative">
+            <input required type={show ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/>
+            <button type="button" onClick={() => setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show ? <EyeOff size={30} /> : <Eye size={30} />}</button>
+          </div>
+          <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20 disabled:opacity-50">
+            {loading ? 'လုပ်ဆောင်နေပါသည်...' : isLogin ? 'Login ဝင်မည်' : 'Register လုပ်မည်'}
+          </button>
         </form>
+
+        {!isLogin && <p className="text-base text-slate-500 text-center mt-6">Admin ခွင့်ပြုချက်ဖြင့်သာ အကောင့်အသစ် ဖွင့်နိုင်ပါသည်။</p>}
       </div>
     </div>
   );
@@ -1125,7 +1226,7 @@ function AuthScreen({ allUsers, onLogin }) {
 // ════════════════════════════════════════════════════════════════
 // PRODUCTS TAB
 // ════════════════════════════════════════════════════════════════
-function ProductsTab({ products, db, appId, currentTenant, showToast }) {
+function ProductsTab({ products, db, appId, currentTenant, showToast, playBeep }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', category: '', barcode: '', costPrice: '', price: '', minStock: '5', unit: 'ခု' });
@@ -1146,6 +1247,7 @@ function ProductsTab({ products, db, appId, currentTenant, showToast }) {
         scannerRef.current = html5QrCode;
         await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
+            playBeep();
             setForm(prev => ({ ...prev, barcode: decodedText.trim() }));
             showToast('Barcode ဖတ်ပြီး ✓');
             (async () => { if (isStopping.current) return; isStopping.current = true; if (scannerRef.current) { await scannerRef.current.stop().catch(() => {}); scannerRef.current = null; } isStopping.current = false; setShowProductScanner(false); })();
@@ -1154,7 +1256,7 @@ function ProductsTab({ products, db, appId, currentTenant, showToast }) {
       } catch { showToast('Camera မရပါ', 'err'); setShowProductScanner(false); }
     })();
     return () => { isStopping.current = true; if (scannerRef.current) { scannerRef.current.stop().catch(() => {}); scannerRef.current = null; } };
-  }, [showProductScanner]);
+  }, [showProductScanner, playBeep]);
 
   const handleSave = async e => {
     e.preventDefault();
@@ -1188,9 +1290,9 @@ function ProductsTab({ products, db, appId, currentTenant, showToast }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <input value={form.category} onChange={e=>setForm({...form,category:e.target.value})} placeholder="အမျိုးအစား" className="px-5 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
             <div className="flex gap-3 items-stretch">
-  <input value={form.barcode} onChange={e=>setForm({...form,barcode:e.target.value})} placeholder="Barcode Code" className="min-w-0 flex-1 px-4 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-  <button type="button" onClick={()=>setShowProductScanner(true)} className="px-4 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"><ScanBarcode size={24}/></button>
-</div>
+              <input value={form.barcode} onChange={e=>setForm({...form,barcode:e.target.value})} placeholder="Barcode Code" className="min-w-0 flex-1 px-4 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+              <button type="button" onClick={()=>setShowProductScanner(true)} className="px-4 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"><ScanBarcode size={24}/></button>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-5">
             <input required type="number" value={form.costPrice} onChange={e=>setForm({...form,costPrice:e.target.value})} placeholder="ဝယ်/အရင်းဈေး" className="px-5 py-5 bg-black border-2 border-blue-500/15 rounded-xl text-xl font-bold text-blue-300 outline-none focus:border-blue-400 transition-all placeholder-slate-600"/>
@@ -1278,28 +1380,52 @@ function InventoryTab({ products, db, appId, hasPermission, sendInventoryReport 
 }
 
 // ════════════════════════════════════════════════════════════════
-// USERS TAB
+// USERS TAB (Staff Creation with Admin Password Verification)
 // ════════════════════════════════════════════════════════════════
 function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ username: '', password: '', role: 'staff' });
   const [show, setShow] = useState(false);
   const [editingPerms, setEditingPerms] = useState(null);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminPass, setShowAdminPass] = useState(false);
 
   const handleAdd = async e => {
     e.preventDefault();
-    if (!form.username.trim() || !form.password.trim()) return;
-    if (posUsers.some(u => u.username === form.username.trim())) { showToast('Username ရှိပြီးသားပါ', 'err'); return; }
+    if (!form.username.trim() || !form.password.trim()) {
+      showToast('Username နှင့် Password ဖြည့်ပါ', 'err');
+      return;
+    }
+    if (form.password.trim().length < 4) {
+      showToast('Password အနည်းဆုံး ၄ လုံး ဖြစ်ရပါမည်', 'err');
+      return;
+    }
+    if (posUsers.some(u => u.username === form.username.trim())) {
+      showToast('❌ Username ရှိပြီးသားပါ။ တခြားအမည် သုံးပါ။', 'err');
+      return;
+    }
+    // Verify Admin Password
+    if (simpleHash(adminPassword) !== currentUser.password) {
+      showToast('❌ Admin Password မှားနေပါသည်', 'err');
+      return;
+    }
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), {
-        tenantId: currentTenant, username: form.username.trim(),
-        password: simpleHash(form.password), role: form.role,
+        tenantId: currentTenant,
+        username: form.username.trim(),
+        password: simpleHash(form.password),
+        role: form.role,
+        email: form.username.trim() + '@' + currentTenant + '.local',
         permissions: form.role === 'staff' ? DEFAULT_STAFF_PERMS : [],
         createdAt: Date.now(),
       });
-      setForm({ username: '', password: '', role: 'staff' }); setAdding(false);
-      showToast('အကောင့်ဖွင့်ပြီးပါပြီ ✓');
-    } catch { showToast('Error', 'err'); }
+      setForm({ username: '', password: '', role: 'staff' });
+      setAdminPassword('');
+      setAdding(false);
+      showToast('✅ Staff အကောင့် ဖန်တီးပြီးပါပြီ', 'ok');
+    } catch {
+      showToast('Error', 'err');
+    }
   };
 
   const togglePermission = async (user, permKey) => {
@@ -1315,15 +1441,23 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
       </div>
       {adding && (
         <form onSubmit={handleAdd} className="bg-black/40 p-8 rounded-2xl border-2 border-indigo-500/15 mb-8 space-y-6">
-          <input required value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="Username" className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all placeholder-slate-600"/>
-          <div className="relative"><input required type={show?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password" className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500"><EyeOff size={26}/></button></div>
+          <input required value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="Staff Username" className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all placeholder-slate-600"/>
+          <div className="relative"><input required type={show?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Staff Password" className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500"><EyeOff size={26}/></button></div>
           <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})} className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all">
             <option value="staff">Staff</option>
             <option value="admin">Admin</option>
           </select>
+          {/* Admin Password Verification */}
+          <div>
+            <label className="text-sm font-black text-amber-400 uppercase block mb-2">🔒 Admin Password ထည့်ပါ</label>
+            <div className="relative">
+              <input required type={showAdminPass?'text':'password'} value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} placeholder="သင့် Admin Password" className="w-full px-5 py-5 bg-amber-950/20 border-2 border-amber-500/30 rounded-xl text-xl font-bold text-amber-300 outline-none focus:border-amber-400 transition-all pr-16 placeholder-amber-700"/>
+              <button type="button" onClick={()=>setShowAdminPass(!showAdminPass)} className="absolute right-6 top-6 text-amber-500">{showAdminPass ? <EyeOff size={26}/> : <Eye size={26}/>}</button>
+            </div>
+          </div>
           <div className="flex gap-5 pt-3">
             <button type="submit" className="flex-1 py-6 bg-indigo-600 text-white rounded-xl font-black text-xl hover:bg-indigo-500 transition-all">✓ ဖွင့်မည်</button>
-            <button type="button" onClick={()=>setAdding(false)} className="px-8 py-6 bg-slate-800 text-slate-400 rounded-xl font-black text-xl hover:bg-slate-700 transition-all">မလုပ်တော့</button>
+            <button type="button" onClick={()=>{setAdding(false);setAdminPassword('');}} className="px-8 py-6 bg-slate-800 text-slate-400 rounded-xl font-black text-xl hover:bg-slate-700 transition-all">မလုပ်တော့</button>
           </div>
         </form>
       )}
