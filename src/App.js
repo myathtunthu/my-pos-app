@@ -653,10 +653,27 @@ export default function App() {
 
   const isSecretSetup = window.location.pathname === '/mttadminacc';
 
-  // Protected Setup: Only accessible if already logged in as admin
-  if (isSecretSetup && currentUser && currentUser.role === 'admin') {
-    return <SetupScreen onSetup={handleSetup} />;
-  }
+// Protected Setup: Only YOU (specific admin) can create new admins
+const isMasterAdmin = currentUser && 
+  (currentUser.tenantId === 'tenant_admin' || currentUser.username === 'admin');
+
+if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmin) {
+  return <SetupScreen onSetup={handleSetup} />;
+}
+
+// If someone else tries to access secret setup, show error
+if (isSecretSetup && currentUser && !isMasterAdmin) {
+  return (
+    <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
+      <div className="bg-[#0d1120] p-10 rounded-3xl border-2 border-rose-500/25 text-center max-w-md w-full">
+        <ShieldAlert size={64} className="mx-auto text-rose-500 mb-6" />
+        <h2 className="text-3xl font-black text-white mb-4">ဝင်ခွင့်မရှိပါ</h2>
+        <p className="text-lg text-slate-400 mb-8">Admin အကောင့်အသစ် ဖန်တီးခွင့် မရှိပါ။<br/>သက်ဆိုင်ရာသို့ ဆက်သွယ်ပါ။</p>
+        <button onClick={() => setCurrentUser(null)} className="w-full py-4 bg-slate-800 text-white rounded-xl font-black text-xl">Login ပြန်ဝင်မည်</button>
+      </div>
+    </div>
+  );
+}
 
   // First-time setup when no admin exists
   if (setupMode && fbUser && !setupDone && !isSecretSetup) return <SetupScreen onSetup={handleSetup} />;
