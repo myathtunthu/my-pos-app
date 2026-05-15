@@ -740,33 +740,49 @@ export default function App() {
                   </div>
 
                   {/* Add to Cart Section */}
-                  <div className="bg-black/40 p-6 rounded-2xl border-2 border-cyan-500/10 space-y-5">
-                    <p className="text-sm font-black text-slate-500 uppercase tracking-widest">ပစ္စည်းရှာဖွေထည့်သွင်းမည်</p>
+<div className="bg-black/40 p-6 rounded-2xl border-2 border-cyan-500/10 space-y-5">
+  <p className="text-sm font-black text-slate-500 uppercase tracking-widest">ပစ္စည်းရှာဖွေထည့်သွင်းမည်</p>
 
-                    {/* Barcode Box + Scan Button - FIXED LAYOUT */}
-                    <div className="flex items-stretch gap-3 w-full">
-                      <div className="relative flex-1 min-w-0">
-                        <ScanBarcode size={24} className="absolute left-5 top-5 text-blue-400 z-10" />
-                        <input
-                          value={barcodeInput}
-                          onChange={e=>setBarcodeInput(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleBarcodeSubmit(e)}
-                          placeholder="Barcode ရိုက်ထည့်ပါ..."
-                          className="w-full h-full bg-blue-950/20 border-2 border-blue-500/30 rounded-xl pl-14 pr-5 py-5 text-xl font-bold text-blue-300 outline-none focus:border-blue-400 focus:bg-blue-950/40 transition-all placeholder-blue-700"
-                        />
-                      </div>
-                      <button
-                        onClick={()=>setShowScanner(true)}
-                        className="px-6 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"
-                      >
-                        <ScanBarcode size={28} />
-                      </button>
-                    </div>
+  {/* Barcode Box + Scan Button + Search Box in ONE row */}
+  <div className="flex items-stretch gap-3 w-full">
+    {/* Barcode Box */}
+    <div className="relative flex-1 min-w-0">
+      <ScanBarcode size={24} className="absolute left-5 top-5 text-blue-400 z-10" />
+      <input
+        value={barcodeInput}
+        onChange={e=>setBarcodeInput(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && handleBarcodeSubmit(e)}
+        placeholder="Barcode..."
+        className="w-full h-full bg-blue-950/20 border-2 border-blue-500/30 rounded-xl pl-14 pr-5 py-5 text-xl font-bold text-blue-300 outline-none focus:border-blue-400 focus:bg-blue-950/40 transition-all placeholder-blue-700"
+      />
+    </div>
 
-                    {/* Categories */}
-                    <div className="flex gap-3 overflow-x-auto pb-2">
-                      {categories.map(c=><button key={c} onClick={()=>setSelCategory(c)} className={`px-6 py-3.5 rounded-xl text-base font-black whitespace-nowrap transition-all ${selCategory===c?'bg-cyan-600 text-white':'bg-[#0d1120] text-slate-400 border-2 border-white/5 hover:border-cyan-500/30'}`}>{c}</button>)}
-                    </div>
+    {/* Scan Button */}
+    <button
+      onClick={()=>setShowScanner(true)}
+      className="px-6 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"
+    >
+      <ScanBarcode size={28} />
+    </button>
+
+    {/* Search Box (ပစ္စည်းအမည်) */}
+    <div className="relative flex-1 min-w-0" ref={searchRef}>
+      <Search size={24} className="absolute left-5 top-5 text-cyan-500 z-10" />
+      <input
+        value={prodSearch}
+        onChange={e=>{setProdSearch(e.target.value);setShowProdDropdown(true);setSelProdId('');}}
+        onFocus={()=>setShowProdDropdown(true)}
+        placeholder="ပစ္စည်းအမည်ရှာပါ..."
+        className="w-full h-full bg-black border-2 border-cyan-500/20 rounded-xl pl-14 pr-14 py-5 text-xl font-bold text-slate-200 outline-none focus:border-cyan-400 placeholder-slate-600 transition-all"
+      />
+      {prodSearch && <button onClick={()=>{setProdSearch('');setSelProdId('');setUnitPrice('');}} className="absolute right-5 top-5 text-slate-500 hover:text-slate-300 p-1 z-10"><X size={24}/></button>}
+    </div>
+  </div>
+
+  {/* Categories */}
+  <div className="flex gap-3 overflow-x-auto pb-2">
+    {categories.map(c=><button key={c} onClick={()=>setSelCategory(c)} className={`px-6 py-3.5 rounded-xl text-base font-black whitespace-nowrap transition-all ${selCategory===c?'bg-cyan-600 text-white':'bg-[#0d1120] text-slate-400 border-2 border-white/5 hover:border-cyan-500/30'}`}>{c}</button>)}
+  </div>
 
                     {/* Searchable Dropdown */}
                     <div className="relative" ref={searchRef}>
