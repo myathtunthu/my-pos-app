@@ -148,7 +148,6 @@ export default function App() {
     setTimeout(() => setToast(null), 4500);
   }, []);
 
-  // ── Setup Mode ──
   const [setupMode, setSetupMode] = useState(null);
   const [setupDone, setSetupDone] = useState(false);
 
@@ -645,7 +644,6 @@ export default function App() {
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
     .map(r => { histBal += r.type === 'Sale' ? (Number(r.amount) || 0) : -(Number(r.amount) || 0); return { ...r, runningBal: histBal }; }).reverse();
 
-  // ═══════════ RENDER GUARDS ═══════════
   if (setupMode === null || authLoading || appLoading) return (
     <div className="min-h-[100dvh] bg-[#080c14] flex flex-col items-center justify-center">
       <Cpu className="text-cyan-500 animate-pulse mb-5" size={64} />
@@ -655,7 +653,7 @@ export default function App() {
 
   const isSecretSetup = window.location.pathname === '/mttadminacc';
 
-  // Allow setup via secret URL ONLY if user is already logged in as admin
+  // Protected Setup: Only accessible if already logged in as admin
   if (isSecretSetup && currentUser && currentUser.role === 'admin') {
     return <SetupScreen onSetup={handleSetup} />;
   }
@@ -740,51 +738,35 @@ export default function App() {
                   </div>
 
                   {/* Add to Cart Section */}
-<div className="bg-black/40 p-6 rounded-2xl border-2 border-cyan-500/10 space-y-5">
-  <p className="text-sm font-black text-slate-500 uppercase tracking-widest">ပစ္စည်းရှာဖွေထည့်သွင်းမည်</p>
+                  <div className="bg-black/40 p-6 rounded-2xl border-2 border-cyan-500/10 space-y-5">
+                    <p className="text-sm font-black text-slate-500 uppercase tracking-widest">ပစ္စည်းရှာဖွေထည့်သွင်းမည်</p>
 
-  {/* Barcode Box + Scan Button + Search Box in ONE row */}
-  <div className="flex items-stretch gap-3 w-full">
-    {/* Barcode Box */}
-    <div className="relative flex-1 min-w-0">
-      <ScanBarcode size={24} className="absolute left-5 top-5 text-blue-400 z-10" />
-      <input
-        value={barcodeInput}
-        onChange={e=>setBarcodeInput(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && handleBarcodeSubmit(e)}
-        placeholder="Barcode..."
-        className="w-full h-full bg-blue-950/20 border-2 border-blue-500/30 rounded-xl pl-14 pr-5 py-5 text-xl font-bold text-blue-300 outline-none focus:border-blue-400 focus:bg-blue-950/40 transition-all placeholder-blue-700"
-      />
-    </div>
+                    {/* Barcode Box + Scan Button in one row */}
+                    <div className="flex items-stretch gap-3 w-full">
+                      <div className="relative flex-1 min-w-0">
+                        <ScanBarcode size={24} className="absolute left-5 top-5 text-blue-400 z-10" />
+                        <input
+                          value={barcodeInput}
+                          onChange={e=>setBarcodeInput(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleBarcodeSubmit(e)}
+                          placeholder="Barcode ရိုက်ထည့်ပါ..."
+                          className="w-full h-full bg-blue-950/20 border-2 border-blue-500/30 rounded-xl pl-14 pr-5 py-5 text-xl font-bold text-blue-300 outline-none focus:border-blue-400 focus:bg-blue-950/40 transition-all placeholder-blue-700"
+                        />
+                      </div>
+                      <button
+                        onClick={()=>setShowScanner(true)}
+                        className="px-6 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"
+                      >
+                        <ScanBarcode size={28} />
+                      </button>
+                    </div>
 
-    {/* Scan Button */}
-    <button
-      onClick={()=>setShowScanner(true)}
-      className="px-6 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"
-    >
-      <ScanBarcode size={28} />
-    </button>
+                    {/* Categories */}
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {categories.map(c=><button key={c} onClick={()=>setSelCategory(c)} className={`px-6 py-3.5 rounded-xl text-base font-black whitespace-nowrap transition-all ${selCategory===c?'bg-cyan-600 text-white':'bg-[#0d1120] text-slate-400 border-2 border-white/5 hover:border-cyan-500/30'}`}>{c}</button>)}
+                    </div>
 
-    {/* Search Box (ပစ္စည်းအမည်) */}
-    <div className="relative flex-1 min-w-0" ref={searchRef}>
-      <Search size={24} className="absolute left-5 top-5 text-cyan-500 z-10" />
-      <input
-        value={prodSearch}
-        onChange={e=>{setProdSearch(e.target.value);setShowProdDropdown(true);setSelProdId('');}}
-        onFocus={()=>setShowProdDropdown(true)}
-        placeholder="ပစ္စည်းအမည်ရှာပါ..."
-        className="w-full h-full bg-black border-2 border-cyan-500/20 rounded-xl pl-14 pr-14 py-5 text-xl font-bold text-slate-200 outline-none focus:border-cyan-400 placeholder-slate-600 transition-all"
-      />
-      {prodSearch && <button onClick={()=>{setProdSearch('');setSelProdId('');setUnitPrice('');}} className="absolute right-5 top-5 text-slate-500 hover:text-slate-300 p-1 z-10"><X size={24}/></button>}
-    </div>
-  </div>
-
-  {/* Categories */}
-  <div className="flex gap-3 overflow-x-auto pb-2">
-    {categories.map(c=><button key={c} onClick={()=>setSelCategory(c)} className={`px-6 py-3.5 rounded-xl text-base font-black whitespace-nowrap transition-all ${selCategory===c?'bg-cyan-600 text-white':'bg-[#0d1120] text-slate-400 border-2 border-white/5 hover:border-cyan-500/30'}`}>{c}</button>)}
-  </div>
-
-                    {/* Searchable Dropdown */}
+                    {/* Search Box (ပစ္စည်းအမည်) - သီးသန့် */}
                     <div className="relative" ref={searchRef}>
                       <div className="relative">
                         <Search size={24} className="absolute left-5 top-5 text-cyan-500 z-10" />
@@ -1186,9 +1168,9 @@ function ProductsTab({ products, db, appId, currentTenant, showToast }) {
           <input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="ပစ္စည်းအမည်" className="w-full px-5 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <input value={form.category} onChange={e=>setForm({...form,category:e.target.value})} placeholder="အမျိုးအစား" className="px-5 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-stretch">
               <input value={form.barcode} onChange={e=>setForm({...form,barcode:e.target.value})} placeholder="Barcode Code" className="flex-1 px-5 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-              <button type="button" onClick={()=>setShowProductScanner(true)} className="px-5 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center"><ScanBarcode size={26}/></button>
+              <button type="button" onClick={()=>setShowProductScanner(true)} className="px-4 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"><ScanBarcode size={24}/></button>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-5">
