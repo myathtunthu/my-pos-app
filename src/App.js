@@ -1168,10 +1168,10 @@ function ProductsTab({ products, db, appId, currentTenant, showToast }) {
           <input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="ပစ္စည်းအမည်" className="w-full px-5 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <input value={form.category} onChange={e=>setForm({...form,category:e.target.value})} placeholder="အမျိုးအစား" className="px-5 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-            <div className="flex gap-4 items-stretch">
-              <input value={form.barcode} onChange={e=>setForm({...form,barcode:e.target.value})} placeholder="Barcode Code" className="flex-1 px-5 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-              <button type="button" onClick={()=>setShowProductScanner(true)} className="px-4 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"><ScanBarcode size={24}/></button>
-            </div>
+            <div className="flex gap-3 items-stretch">
+  <input value={form.barcode} onChange={e=>setForm({...form,barcode:e.target.value})} placeholder="Barcode Code" className="min-w-0 flex-1 px-4 py-5 bg-black border-2 border-cyan-500/15 rounded-xl text-xl font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+  <button type="button" onClick={()=>setShowProductScanner(true)} className="px-4 bg-blue-600/20 border-2 border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center justify-center"><ScanBarcode size={24}/></button>
+</div>
           </div>
           <div className="grid grid-cols-2 gap-5">
             <input required type="number" value={form.costPrice} onChange={e=>setForm({...form,costPrice:e.target.value})} placeholder="ဝယ်/အရင်းဈေး" className="px-5 py-5 bg-black border-2 border-blue-500/15 rounded-xl text-xl font-bold text-blue-300 outline-none focus:border-blue-400 transition-all placeholder-slate-600"/>
