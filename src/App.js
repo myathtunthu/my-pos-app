@@ -654,8 +654,10 @@ export default function App() {
   const isSecretSetup = window.location.pathname === '/mttadminacc';
 
 // Protected Setup: Only YOU (specific admin) can create new admins
+const masterAdmin = process.env.REACT_APP_MASTER_ADMIN || 'admin';
+
 const isMasterAdmin = currentUser && 
-  (currentUser.tenantId === 'tenant_admin' || currentUser.username === 'admin');
+  (currentUser.tenantId === 'tenant_admin' || currentUser.username === masterAdmin);
 
 if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmin) {
   return <SetupScreen onSetup={handleSetup} />;
