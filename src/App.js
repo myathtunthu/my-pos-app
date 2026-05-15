@@ -87,12 +87,12 @@ const doPrint = (record, shopName) => {
     const discStr = i.itemDiscountAmt > 0 ? `<br><small><i>(-${fmt(i.itemDiscountAmt)} Disc)</i></small>` : '';
     return `<tr><td>${i.name}${discStr}</td><td align="right">${i.quantity}</td><td align="right">${fmt((i.unitPrice * i.quantity) - (i.itemDiscountAmt||0))}</td></tr>`;
   }).join('');
-  const w = window.open('', '_blank', 'width=320,height=640');
+  const w = window.open('', '_blank', 'width=360,height=640');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt</title>
-<style>body{font-family:monospace;font-size:12px;width:280px;margin:auto;padding:10px}
-h2,p{text-align:center;margin:3px 0}hr{border:none;border-top:1px dashed #000}
-table{width:100%}th{border-bottom:1px solid}td{padding:4px 0;vertical-align:top}
-.tot{font-size:15px;font-weight:bold;text-align:right}.ft{text-align:center;font-size:10px;margin-top:10px}</style>
+<style>body{font-family:monospace;font-size:14px;width:300px;margin:auto;padding:12px}
+h2,p{text-align:center;margin:4px 0}hr{border:none;border-top:1px dashed #000}
+table{width:100%}th{border-bottom:1px solid}td{padding:5px 0;vertical-align:top}
+.tot{font-size:16px;font-weight:bold;text-align:right}.ft{text-align:center;font-size:11px;margin-top:12px}</style>
 </head><body>
 <h2>${shopName || 'POS System'}</h2>
 <p>${record.date || ''}</p>
@@ -112,12 +112,10 @@ ${record.discount > 0 ? `<p align="right">Global Disc: -${fmt(record.discount)} 
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════════════════
 export default function App() {
-  // ── Firebase Init (Environment Variables) ──
   const firebaseConfig = useMemo(() => {
     if (process.env.REACT_APP_FIREBASE_CONFIG) {
       return JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
     }
-    // Fallback for local dev (optional, you can remove later)
     return {
       apiKey: "AIzaSyAlpJICmBjeJoRuvJgN2kGpAK7AQDAtN6M",
       authDomain: "mtt-pos.firebaseapp.com",
@@ -147,11 +145,10 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const showToast = useCallback((msg, type = 'ok') => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
+    setTimeout(() => setToast(null), 4000);
   }, []);
 
-  // ── Setup Mode ──
-  const [setupMode, setSetupMode] = useState(null); // null=checking
+  const [setupMode, setSetupMode] = useState(null);
   const [setupDone, setSetupDone] = useState(false);
 
   useEffect(() => {
@@ -180,7 +177,6 @@ export default function App() {
     setSetupDone(true);
   };
 
-  // ── Derived Data ──
   const currentTenant = currentUser?.tenantId;
   const posUsers = useMemo(() => allUsers.filter(u => u.tenantId === currentTenant), [allUsers, currentTenant]);
   const records = useMemo(() => allRecords.filter(r => r.tenantId === currentTenant), [allRecords, currentTenant]);
@@ -199,17 +195,13 @@ export default function App() {
     }
   }, [tenantSettings, currentTenant]);
 
-  // ── Views ──
   const [view, setView] = useState('Entry');
   const [adminTab, setAdminTab] = useState('Products');
-
-  // ── Dashboard ──
   const [dashPeriod, setDashPeriod] = useState('Today');
   const [selDate, setSelDate] = useState(todayISO());
   const [repStart, setRepStart] = useState(todayISO());
   const [repEnd, setRepEnd] = useState(todayISO());
 
-  // ── Entry ──
   const [entryTab, setEntryTab] = useState('Sale');
   const [entryDate, setEntryDate] = useState(todayISO());
   const [personName, setPersonName] = useState('');
@@ -227,12 +219,10 @@ export default function App() {
   const [expenseTitle, setExpenseTitle] = useState('');
   const [expenseAmt, setExpenseAmt] = useState('');
 
-  // ── Ledger ──
   const [ledSearch, setLedSearch] = useState('');
   const [ledFilter, setLedFilter] = useState('All');
   const [showFilterSheet, setShowFilterSheet] = useState(false);
 
-  // ── Modals ──
   const [payModal, setPayModal] = useState({ show: false, name: '', debt: 0, amt: '', date: todayISO() });
   const [receiptModal, setReceiptModal] = useState({ show: false, record: null });
   const [historyModal, setHistoryModal] = useState({ show: false, name: '' });
@@ -241,32 +231,27 @@ export default function App() {
   const fileRef = useRef(null);
   const searchRef = useRef(null);
 
-  // ── Scanner ──
   const [showScanner, setShowScanner] = useState(false);
   const scannerRef = useRef(null);
   const isStopping = useRef(false);
 
-  // ── Permission Helper ──
   const hasPermission = useCallback((perm) => {
     if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
     return currentUser.permissions?.includes(perm);
   }, [currentUser]);
 
-  // Close dropdown outside
   useEffect(() => {
     const handler = (e) => { if (searchRef.current && !searchRef.current.contains(e.target)) setShowProdDropdown(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // ── Auth ──
   useEffect(() => {
     signInAnonymously(auth);
     return onAuthStateChanged(auth, u => { setFbUser(u); if (!u) setAuthLoading(false); });
   }, [auth]);
 
-  // ── Real-time Sync ──
   useEffect(() => {
     if (!fbUser) return;
     const b = ['artifacts', appId, 'public', 'data'];
@@ -287,7 +272,6 @@ export default function App() {
     return () => { u1(); u2(); u3(); u4(); };
   }, [fbUser, db, appId]);
 
-  // Update permissions in real-time if admin changes them
   useEffect(() => {
     if (currentUser) {
       const fresh = allUsers.find(u => u.id === currentUser.id);
@@ -297,7 +281,6 @@ export default function App() {
     }
   }, [allUsers, currentUser]);
 
-  // Auto-fill price
   useEffect(() => {
     if (selProdId) {
       const p = products.find(x => x.id === selProdId);
@@ -308,7 +291,6 @@ export default function App() {
     } else setUnitPrice('');
   }, [selProdId, products, entryTab]);
 
-  // ── Scanner Effect ──
   useEffect(() => {
     if (!showScanner) return;
     if (!window.Html5Qrcode) { showToast('Scanner library မရှိပါ', 'err'); setShowScanner(false); return; }
@@ -343,7 +325,6 @@ export default function App() {
     return () => { isStopping.current = true; if (scannerRef.current) { scannerRef.current.stop().catch(() => {}); scannerRef.current = null; } };
   }, [showScanner]);
 
-  // ── Computed ──
   const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);
   const lowStock = useMemo(() => products.filter(p => (Number(p.stock) || 0) <= (Number(p.minStock) || 5)), [products]);
 
@@ -411,7 +392,6 @@ export default function App() {
     return { sub, itemDiscounts: id, globalDisc: gdisc, total: Math.max(aid - gdisc, 0) };
   }, [cart, globalDiscountAmt, globalDiscountType]);
 
-  // ── Cart Actions ──
   const addToCart = () => {
     if (!selProdId || !unitPrice || !quantity) { showToast('ပစ္စည်း၊ ဈေးနှုန်း၊ အရေအတွက် ဖြည့်ပါ', 'err'); return; }
     const prod = products.find(p => p.id === selProdId);
@@ -449,7 +429,6 @@ export default function App() {
     setBarcodeInput('');
   };
 
-  // ── Invoice ──
   const getNextInvoiceNo = async () => {
     const ref = doc(db, 'artifacts', appId, 'public', 'data', 'counters', `invoice_${currentTenant}`);
     try {
@@ -660,144 +639,230 @@ export default function App() {
     showToast('ဆက်တင်သိမ်းပြီး ✓');
   };
 
-  // ── History Modal ──
   let histBal = 0;
   const histRecords = records.filter(r => (r.type === 'Sale' || r.type === 'Payment') && r.personName === historyModal.name)
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
     .map(r => { histBal += r.type === 'Sale' ? (Number(r.amount) || 0) : -(Number(r.amount) || 0); return { ...r, runningBal: histBal }; }).reverse();
 
-  // ── RENDER GUARDS ──
   if (setupMode === null || authLoading || appLoading) return (
     <div className="min-h-[100dvh] bg-[#080c14] flex flex-col items-center justify-center">
-      <Cpu className="text-cyan-500 animate-pulse mb-4" size={48} />
-      <p className="text-cyan-600 font-bold text-sm">Loading...</p>
+      <Cpu className="text-cyan-500 animate-pulse mb-4" size={56} />
+      <p className="text-cyan-400 font-bold text-lg">Loading...</p>
     </div>
   );
 
-  if (setupMode && fbUser && !setupDone) return <SetupScreen onSetup={handleSetup} />;
+  const isSecretSetup = window.location.pathname === '/mttadminacc';
+
+  if (isSecretSetup && fbUser && !setupDone) return <SetupScreen onSetup={handleSetup} />;
+  if (setupMode && fbUser && !setupDone && !isSecretSetup) return <SetupScreen onSetup={handleSetup} />;
   if (!currentUser) return <AuthScreen allUsers={allUsers} onLogin={setCurrentUser} />;
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#080c14] pb-[90px] text-slate-100 antialiased font-sans overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full bg-[#080c14] pb-[100px] text-slate-100 antialiased font-sans overflow-x-hidden">
       {/* Toast */}
       {toast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[400] animate-bounce">
-          <div className={`flex items-center gap-2 px-5 py-3 rounded-2xl border text-sm font-bold ${toast.type==='err'?'bg-rose-950 border-rose-500/40 text-rose-200':'bg-emerald-950 border-emerald-500/40 text-emerald-200'}`}>
-            {toast.type==='err'?<AlertCircle size={16}/>:<CheckCircle size={16}/>}{toast.msg}
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[400] animate-bounce max-w-[90vw]">
+          <div className={`flex items-center gap-2 px-6 py-4 rounded-2xl border text-base font-bold shadow-2xl ${toast.type==='err'?'bg-rose-950 border-rose-500/40 text-rose-200':'bg-emerald-950 border-emerald-500/40 text-emerald-200'}`}>
+            {toast.type==='err'?<AlertCircle size={20}/>:<CheckCircle size={20}/>}{toast.msg}
           </div>
         </div>
       )}
 
       {/* Low Stock Banner */}
       {lowStock.length>0 && hasPermission('manage_inventory') && (
-        <div className="bg-amber-950/80 border-b border-amber-600/30 px-4 py-1.5 text-amber-300 text-xs font-semibold flex items-center gap-2">
-          <AlertTriangle size={14} className="animate-pulse"/> Stock နည်း: {lowStock.slice(0,3).map(p=>`${p.name}(${p.stock||0})`).join(' · ')}
+        <div className="bg-amber-950/80 border-b border-amber-600/30 px-4 py-2 text-amber-300 text-sm font-semibold flex items-center gap-2">
+          <AlertTriangle size={16} className="animate-pulse flex-shrink-0"/> Stock နည်း: {lowStock.slice(0,3).map(p=>`${p.name}(${p.stock||0})`).join(' · ')}{lowStock.length>3?` +${lowStock.length-3}`:''}
         </div>
       )}
 
       {/* Nav */}
-      <nav className="sticky top-0 z-40 w-full bg-[#0d1120]/95 backdrop-blur border-b border-cyan-500/20 px-5 h-16 flex items-center justify-between">
+      <nav className="sticky top-0 z-40 w-full bg-[#0d1120]/95 backdrop-blur border-b border-cyan-500/20 px-4 sm:px-6 h-20 flex items-center justify-between shadow-[0_0_20px_rgba(6,182,212,0.08)]">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center"><Cpu size={18} className="text-white"/></div>
-          <div><p className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 uppercase">{shopName}</p><p className="text-[8px] text-cyan-700/70 font-bold uppercase">{currentUser.username} ({currentUser.role})</p></div>
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.5)]">
+            <Cpu size={24} className="text-white animate-pulse" />
+          </div>
+          <div>
+            <p className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 uppercase leading-tight">{shopName}</p>
+            <p className="text-xs text-cyan-400/70 font-bold uppercase tracking-widest mt-0.5">v18 · {currentUser.username} ({currentUser.role})</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {hasPermission('settings') && <button onClick={()=>setShowSettings(true)} className="p-2 text-cyan-700 hover:text-cyan-400"><SettingsIcon size={20}/></button>}
-          <button onClick={()=>setCurrentUser(null)} className="p-2 text-rose-700 hover:text-rose-400"><LogOut size={20}/></button>
+        <div className="flex items-center gap-3">
+          {hasPermission('settings') && <button onClick={()=>setShowSettings(true)} className="p-3 text-cyan-400 hover:text-cyan-200 transition-colors rounded-xl hover:bg-white/5"><SettingsIcon size={24}/></button>}
+          <button onClick={()=>setCurrentUser(null)} className="p-3 text-rose-400 hover:text-rose-200 transition-colors rounded-xl hover:bg-white/5"><LogOut size={24}/></button>
         </div>
       </nav>
 
-      <main className="flex-1 w-full max-w-lg mx-auto px-4 pt-5 space-y-5">
+      <main className="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
         {/* ═══ ENTRY ═══ */}
         {view==='Entry' && (
-          <div className="space-y-5">
-            <div className="bg-[#0d1120] p-1 rounded-xl flex border border-cyan-500/15">
-              {hasPermission('create_sale') && <button onClick={()=>{setEntryTab('Sale');clearCart();}} className={`flex-1 py-3 text-xs font-black rounded-lg ${entryTab==='Sale'?'bg-cyan-600 text-white':'text-cyan-900'}`}>🛒 အရောင်း</button>}
-              {hasPermission('create_purchase') && <button onClick={()=>{setEntryTab('Purchase');clearCart();}} className={`flex-1 py-3 text-xs font-black rounded-lg ${entryTab==='Purchase'?'bg-blue-600 text-white':'text-cyan-900'}`}>📦 အဝယ်</button>}
-              {hasPermission('create_expense') && <button onClick={()=>{setEntryTab('Expense');clearCart();}} className={`flex-1 py-3 text-xs font-black rounded-lg ${entryTab==='Expense'?'bg-amber-600 text-white':'text-cyan-900'}`}>💸 စရိတ်</button>}
+          <div className="space-y-6">
+            <div className="bg-[#0d1120] p-1.5 rounded-2xl flex border border-cyan-500/15 overflow-x-auto">
+              {hasPermission('create_sale') && <button onClick={()=>{setEntryTab('Sale');clearCart();}} className={`flex-1 py-4 text-sm font-black rounded-xl whitespace-nowrap transition-all ${entryTab==='Sale'?'bg-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]':'text-cyan-600 hover:text-cyan-400'}`}>🛒 အရောင်း</button>}
+              {hasPermission('create_purchase') && <button onClick={()=>{setEntryTab('Purchase');clearCart();}} className={`flex-1 py-4 text-sm font-black rounded-xl whitespace-nowrap transition-all ${entryTab==='Purchase'?'bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]':'text-blue-600 hover:text-blue-400'}`}>📦 အဝယ်</button>}
+              {hasPermission('create_expense') && <button onClick={()=>{setEntryTab('Expense');clearCart();}} className={`flex-1 py-4 text-sm font-black rounded-xl whitespace-nowrap transition-all ${entryTab==='Expense'?'bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]':'text-amber-600 hover:text-amber-400'}`}>💸 စရိတ်</button>}
             </div>
-            <div className="bg-[#0d1120] p-5 rounded-3xl border border-cyan-500/15 space-y-4">
-              <div><label className="text-[10px] font-black text-slate-600 block mb-1.5">ရက်စွဲ</label><input type="date" value={entryDate} onChange={e=>setEntryDate(e.target.value)} className="w-full bg-black/50 border border-cyan-500/20 rounded-xl px-4 py-3 text-sm font-bold text-cyan-400 outline-none"/></div>
+            <div className="bg-[#0d1120] p-5 sm:p-6 rounded-3xl border border-cyan-500/15 shadow-xl space-y-5">
+              <div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest block mb-2">ရက်စွဲ</label>
+                <input type="date" value={entryDate} onChange={e=>setEntryDate(e.target.value)} className="w-full bg-black/50 border border-cyan-500/20 rounded-xl px-4 py-4 text-lg font-bold text-cyan-400 outline-none focus:border-cyan-400 transition-all" />
+              </div>
+
               {entryTab==='Expense' && (
                 <>
-                  <div><label className="text-[10px] font-black text-slate-600 block mb-1.5">စရိတ်အမည်</label><input value={expenseTitle} onChange={e=>setExpenseTitle(e.target.value)} placeholder="ဥပမာ: မီတာခ" className="w-full bg-black/50 border border-amber-500/20 rounded-xl px-4 py-3 text-sm font-bold text-slate-200 outline-none"/></div>
-                  <div><label className="text-[10px] font-black text-slate-600 block mb-1.5">ပမာဏ</label><input type="number" value={expenseAmt} onChange={e=>setExpenseAmt(e.target.value)} className="w-full bg-black/50 border border-amber-500/20 rounded-xl px-4 py-3 text-xl font-black text-amber-400 outline-none"/></div>
-                  <button onClick={submitExpense} className="w-full py-4 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-black rounded-xl">✓ သိမ်းမည်</button>
+                  <div>
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest block mb-2">အသုံးစရိတ်အမည်</label>
+                    <input value={expenseTitle} onChange={e=>setExpenseTitle(e.target.value)} placeholder="ဥပမာ: မီတာခ" className="w-full bg-black/50 border border-amber-500/20 rounded-xl px-4 py-4 text-lg font-bold text-slate-200 outline-none placeholder-slate-600 focus:border-amber-400 transition-all" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest block mb-2">ပမာဏ (Ks)</label>
+                    <input type="number" value={expenseAmt} onChange={e=>setExpenseAmt(e.target.value)} placeholder="0" className="w-full bg-black/50 border border-amber-500/20 rounded-xl px-4 py-4 text-2xl font-black text-amber-400 outline-none placeholder-slate-600 focus:border-amber-400 transition-all" />
+                  </div>
+                  <button onClick={submitExpense} className="w-full py-5 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-black rounded-xl text-lg active:scale-95 transition-all shadow-lg">✓ သိမ်းမည်</button>
                 </>
               )}
+
               {(entryTab==='Sale'||entryTab==='Purchase') && (
                 <>
-                  <div><label className="text-[10px] font-black text-slate-600 block mb-1.5">{entryTab==='Sale'?'ဝယ်သူအမည်':'Supplier'}</label><input value={personName} onChange={e=>setPersonName(e.target.value)} placeholder={entryTab==='Sale'?'Walk-in Customer':'Supplier'} className="w-full bg-black/50 border border-cyan-500/20 rounded-xl px-4 py-3 text-sm font-bold text-slate-200 outline-none"/></div>
-                  <div className="bg-black/40 p-4 rounded-2xl border border-cyan-500/10 space-y-3">
-                    <div className="flex gap-2 items-center">
-                      <form onSubmit={handleBarcodeSubmit} className="flex-1 relative">
-                        <ScanBarcode size={16} className="absolute left-3 top-3 text-blue-500"/>
-                        <input value={barcodeInput} onChange={e=>setBarcodeInput(e.target.value)} placeholder="Barcode..." className="w-full bg-blue-950/20 border border-blue-500/30 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-blue-300 outline-none"/>
-                      </form>
-                      <button onClick={()=>setShowScanner(true)} className="p-3 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400"><ScanBarcode size={18}/></button>
+                  <div>
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest block mb-2">
+                      {entryTab==='Sale' ? 'ဝယ်သူအမည် (အကြွေးဆိုလျှင် မဖြစ်မနေ)' : 'Supplier'}
+                    </label>
+                    <input value={personName} onChange={e=>setPersonName(e.target.value)} placeholder={entryTab==='Sale'?'Walk-in Customer':'Supplier'} className="w-full bg-black/50 border border-cyan-500/20 rounded-xl px-4 py-4 text-lg font-bold text-slate-200 outline-none placeholder-slate-600 focus:border-cyan-400 transition-all" />
+                  </div>
+
+                  {/* Add to Cart Section */}
+                  <div className="bg-black/40 p-5 rounded-2xl border border-cyan-500/10 space-y-4">
+                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">ပစ္စည်းရှာဖွေထည့်သွင်းမည်</p>
+
+                    {/* Barcode Box + Scan Button in one row */}
+                    <div className="flex gap-3 items-center">
+                      <div className="relative flex-1">
+                        <ScanBarcode size={20} className="absolute left-4 top-4 text-blue-400" />
+                        <input
+                          value={barcodeInput}
+                          onChange={e=>setBarcodeInput(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleBarcodeSubmit(e)}
+                          placeholder="Barcode ရိုက်ထည့်ပါ..."
+                          className="w-full bg-blue-950/20 border border-blue-500/30 rounded-xl pl-12 pr-4 py-4 text-lg font-bold text-blue-300 outline-none focus:border-blue-400 focus:bg-blue-950/40 transition-all placeholder-blue-700"
+                        />
+                      </div>
+                      <button
+                        onClick={()=>setShowScanner(true)}
+                        className="p-4 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0"
+                      >
+                        <ScanBarcode size={24} />
+                      </button>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto">
-                      {categories.map(c=><button key={c} onClick={()=>setSelCategory(c)} className={`px-4 py-2 rounded-lg text-xs font-black whitespace-nowrap ${selCategory===c?'bg-cyan-600 text-white':'bg-[#0d1120] text-slate-500'}`}>{c}</button>)}
+
+                    {/* Categories */}
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {categories.map(c=><button key={c} onClick={()=>setSelCategory(c)} className={`px-5 py-3 rounded-xl text-sm font-black whitespace-nowrap transition-all ${selCategory===c?'bg-cyan-600 text-white':'bg-[#0d1120] text-slate-400 border border-white/5 hover:border-cyan-500/30'}`}>{c}</button>)}
                     </div>
+
+                    {/* Searchable Dropdown */}
                     <div className="relative" ref={searchRef}>
-                      <div className="relative"><Search size={16} className="absolute left-3 top-3.5 text-cyan-700"/><input value={prodSearch} onChange={e=>{setProdSearch(e.target.value);setShowProdDropdown(true);setSelProdId('');}} onFocus={()=>setShowProdDropdown(true)} placeholder="ပစ္စည်းရှာ..." className="w-full bg-black border border-cyan-500/20 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-200 outline-none"/></div>
+                      <div className="relative">
+                        <Search size={20} className="absolute left-4 top-4 text-cyan-500" />
+                        <input
+                          value={prodSearch}
+                          onChange={e=>{setProdSearch(e.target.value);setShowProdDropdown(true);setSelProdId('');}}
+                          onFocus={()=>setShowProdDropdown(true)}
+                          placeholder="ပစ္စည်းအမည်ဖြင့် ရှာဖွေပါ..."
+                          className="w-full bg-black border border-cyan-500/20 rounded-xl pl-12 pr-12 py-4 text-lg font-bold text-slate-200 outline-none focus:border-cyan-400 placeholder-slate-600 transition-all"
+                        />
+                        {prodSearch && <button onClick={()=>{setProdSearch('');setSelProdId('');setUnitPrice('');}} className="absolute right-4 top-4 text-slate-500 hover:text-slate-300 p-1"><X size={20}/></button>}
+                      </div>
+
                       {showProdDropdown && (
-                        <div className="absolute z-50 w-full bg-[#0d1120] border border-cyan-500/40 rounded-xl mt-1 max-h-48 overflow-y-auto">
-                          {filteredProdsForDropdown.length===0?<p className="px-4 py-3 text-sm text-slate-500">မတွေ့ပါ</p>:filteredProdsForDropdown.slice(0,20).map(p=>(
-                            <div key={p.id} onClick={()=>{setSelProdId(p.id);setProdSearch(p.name);setUnitPrice(String(entryTab==='Sale'?p.price||0:p.costPrice||0));setShowProdDropdown(false);}} className="px-4 py-3 border-b border-white/5 hover:bg-cyan-900/30 cursor-pointer">
-                              <p className="text-sm font-black text-slate-200">{p.name}</p>
-                              <p className="text-[11px] text-cyan-600 font-bold">{p.category||'General'} · {fmt(entryTab==='Sale'?p.price:p.costPrice)} Ks</p>
+                        <div className="absolute z-50 w-full bg-[#0d1120] border border-cyan-500/40 rounded-xl mt-1 max-h-56 overflow-y-auto shadow-2xl">
+                          {filteredProdsForDropdown.length===0?<p className="px-5 py-4 text-base text-slate-500 text-center">မတွေ့ပါ</p>:filteredProdsForDropdown.slice(0,20).map(p=>(
+                            <div key={p.id} onClick={()=>{setSelProdId(p.id);setProdSearch(p.name);setUnitPrice(String(entryTab==='Sale'?p.price||0:p.costPrice||0));setShowProdDropdown(false);}} className="px-5 py-4 border-b border-white/5 hover:bg-cyan-900/30 cursor-pointer transition-all flex justify-between items-center">
+                              <div>
+                                <p className="text-base font-black text-slate-200">{p.name}</p>
+                                <p className="text-sm text-cyan-500 font-bold mt-0.5">{p.category||'General'} · {fmt(entryTab==='Sale'?p.price:p.costPrice)} Ks</p>
+                              </div>
+                              <span className={`text-xs font-black px-3 py-1.5 rounded-lg ${(p.stock||0) <= (p.minStock||5) ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>Stock: {p.stock||0}</span>
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input type="number" value={unitPrice} onChange={e=>setUnitPrice(e.target.value)} placeholder={entryTab==='Sale'?'ရောင်းဈေး':'ဝယ်ဈေး'} className="bg-black border border-cyan-500/20 rounded-xl px-3 py-3 text-sm font-bold text-cyan-400 outline-none"/>
-                      <input type="number" value={quantity} onChange={e=>setQuantity(e.target.value)} placeholder="အရေအတွက်" className="bg-black border border-cyan-500/20 rounded-xl px-3 py-3 text-sm font-bold text-cyan-400 outline-none"/>
+
+                    {/* Unit Price & Quantity */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-600 uppercase block mb-1.5">{entryTab==='Sale'?'ရောင်းဈေး':'ဝယ်ဈေး'}</label>
+                        <input type="number" value={unitPrice} onChange={e=>setUnitPrice(e.target.value)} placeholder="0" className="w-full bg-black border border-cyan-500/20 rounded-xl px-4 py-4 text-lg font-bold text-cyan-400 outline-none focus:border-cyan-400 transition-all placeholder-slate-700" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-600 uppercase block mb-1.5">အရေအတွက်</label>
+                        <input type="number" value={quantity} onChange={e=>setQuantity(e.target.value)} placeholder="1" className="w-full bg-black border border-cyan-500/20 rounded-xl px-4 py-4 text-lg font-bold text-cyan-400 outline-none focus:border-cyan-400 transition-all placeholder-slate-700" />
+                      </div>
                     </div>
-                    <button onClick={addToCart} className="w-full py-3 bg-cyan-600/20 border border-cyan-500/40 text-cyan-400 rounded-xl font-black text-sm flex items-center justify-center gap-2"><PlusCircle size={16}/>ထည့်မည်</button>
+
+                    <button onClick={addToCart} className="w-full py-4 bg-cyan-600/20 border-2 border-cyan-500/40 text-cyan-400 rounded-xl font-black text-lg flex items-center justify-center gap-2 hover:bg-cyan-600/30 transition-all active:scale-95">
+                      <PlusCircle size={22}/> ခြင်းထဲထည့်မည်
+                    </button>
                   </div>
+
+                  {/* Cart List */}
                   {cart.length>0 && (
-                    <div className="space-y-3">
-                      <div className="max-h-60 overflow-y-auto space-y-2">
+                    <div className="space-y-4">
+                      <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
                         {cart.map(item=>(
-                          <div key={item.id} className="bg-black/40 p-3 rounded-xl border border-cyan-500/10">
+                          <div key={item.id} className="bg-black/40 p-4 rounded-2xl border border-cyan-500/10">
                             <div className="flex justify-between items-start">
-                              <div className="flex-1"><p className="text-sm font-black text-white truncate">{item.name}</p><p className="text-[11px] text-cyan-700">{fmt(item.unitPrice)} × {item.quantity} = {fmt(item.unitPrice*item.quantity)}</p></div>
-                              <button onClick={()=>removeFromCart(item.id)} className="text-slate-700 hover:text-rose-500 ml-3"><X size={16}/></button>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-lg font-black text-white truncate">{item.name}</p>
+                                <p className="text-sm text-cyan-400 font-bold mt-1">{fmt(item.unitPrice)} × {item.quantity} = {fmt(item.unitPrice*item.quantity)} Ks</p>
+                                {item.costPrice>0 && entryTab==='Sale' && <p className="text-xs text-emerald-600 mt-0.5">Margin: +{fmt((item.unitPrice-item.costPrice)*item.quantity)} Ks</p>}
+                              </div>
+                              <button onClick={()=>removeFromCart(item.id)} className="text-slate-600 hover:text-rose-400 ml-3 p-2 flex-shrink-0"><X size={20}/></button>
                             </div>
+                            {/* Item Discount */}
                             {entryTab==='Sale' && (
-                              <div className="flex items-center gap-2 mt-2">
-                                <span className="text-[10px] text-amber-600 font-black"><Tag size={12} className="inline"/> Disc:</span>
-                                <input type="number" value={item.itemDiscountAmt||''} onChange={e=>updateItemDiscount(item.id,e.target.value)} className="w-20 bg-black/50 border border-amber-500/20 rounded-lg px-2 py-1 text-sm font-bold text-amber-400 outline-none"/>
+                              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+                                <span className="text-xs font-black text-amber-500/80 uppercase flex items-center gap-1.5"><Tag size={14}/> Disc (Ks):</span>
+                                <input type="number" value={item.itemDiscountAmt||''} onChange={e=>updateItemDiscount(item.id,e.target.value)} placeholder="0" className="w-28 bg-black/50 border border-amber-500/20 rounded-lg px-3 py-2 text-base font-bold text-amber-400 outline-none focus:border-amber-400 transition-all" />
                               </div>
                             )}
                           </div>
                         ))}
                       </div>
+
+                      {/* Global Discount (Sale Only) */}
                       {entryTab==='Sale' && (
-                        <div className="flex gap-2 items-center">
-                          <input type="number" value={globalDiscountAmt} onChange={e=>setGlobalDiscountAmt(e.target.value)} placeholder="Global Discount" className="flex-1 bg-black/50 border border-amber-500/20 rounded-xl px-4 py-3 text-sm font-bold text-amber-400 outline-none"/>
-                          <div className="flex rounded-xl overflow-hidden border border-white/5">
-                            <button onClick={()=>setGlobalDiscountType('%')} className={`px-4 py-3 text-sm font-black ${globalDiscountType==='%'?'bg-amber-600 text-white':'bg-[#0d1120] text-slate-600'}`}>%</button>
-                            <button onClick={()=>setGlobalDiscountType('flat')} className={`px-4 py-3 text-sm font-black ${globalDiscountType==='flat'?'bg-amber-600 text-white':'bg-[#0d1120] text-slate-600'}`}>Ks</button>
+                        <div className="flex gap-3 items-center">
+                          <div className="flex-1">
+                            <label className="text-[10px] font-black text-slate-600 uppercase block mb-1.5">Global Discount</label>
+                            <input type="number" value={globalDiscountAmt} onChange={e=>setGlobalDiscountAmt(e.target.value)} placeholder="0" className="w-full bg-black/50 border border-amber-500/20 rounded-xl px-4 py-4 text-lg font-bold text-amber-400 outline-none focus:border-amber-400 transition-all placeholder-slate-700" />
+                          </div>
+                          <div className="flex rounded-xl overflow-hidden border-2 border-white/5 mt-5">
+                            <button onClick={()=>setGlobalDiscountType('%')} className={`px-5 py-4 text-base font-black transition-all ${globalDiscountType==='%'?'bg-amber-600 text-white':'bg-[#0d1120] text-slate-500'}`}>%</button>
+                            <button onClick={()=>setGlobalDiscountType('flat')} className={`px-5 py-4 text-base font-black transition-all ${globalDiscountType==='flat'?'bg-amber-600 text-white':'bg-[#0d1120] text-slate-500'}`}>Ks</button>
                           </div>
                         </div>
                       )}
-                      <div className="bg-black/40 p-4 rounded-xl space-y-1.5 text-sm border border-cyan-500/10">
-                        <div className="flex justify-between text-slate-600"><span>Subtotal</span><span>{fmt(cartTotals.sub)}</span></div>
-                        {cartTotals.itemDiscounts>0 && <div className="flex justify-between text-amber-600"><span>Item Disc</span><span>-{fmt(cartTotals.itemDiscounts)}</span></div>}
-                        {cartTotals.globalDisc>0 && <div className="flex justify-between text-amber-500"><span>Global Disc</span><span>-{fmt(cartTotals.globalDisc)}</span></div>}
-                        <div className="flex justify-between text-xl font-black text-cyan-300 pt-2 border-t border-white/5"><span>TOTAL</span><span>{fmt(cartTotals.total)}</span></div>
+
+                      {/* Totals */}
+                      <div className="bg-black/40 p-5 rounded-2xl space-y-2 border border-cyan-500/10">
+                        <div className="flex justify-between text-base text-slate-500"><span>Subtotal</span><span className="font-bold">{fmt(cartTotals.sub)} Ks</span></div>
+                        {cartTotals.itemDiscounts>0 && <div className="flex justify-between text-base text-amber-500"><span>Item Discounts</span><span className="font-bold">−{fmt(cartTotals.itemDiscounts)} Ks</span></div>}
+                        {cartTotals.globalDisc>0 && <div className="flex justify-between text-base text-amber-400"><span>Global Discount</span><span className="font-bold">−{fmt(cartTotals.globalDisc)} Ks</span></div>}
+                        <div className="flex justify-between text-2xl font-black text-cyan-300 pt-3 mt-3 border-t border-white/10"><span>TOTAL</span><span>{fmt(cartTotals.total)} Ks</span></div>
                       </div>
+
+                      {/* Payment Type (Sale Only) */}
                       {entryTab==='Sale' && (
-                        <div className="grid grid-cols-2 gap-3">
-                          <button onClick={()=>setPaymentType('Cash')} className={`py-4 rounded-xl text-sm font-black ${paymentType==='Cash'?'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40':'bg-black/40 text-slate-700'}`}>💵 လက်ငင်း</button>
-                          <button onClick={()=>setPaymentType('Credit')} className={`py-4 rounded-xl text-sm font-black ${paymentType==='Credit'?'bg-rose-500/20 text-rose-400 border border-rose-500/40':'bg-black/40 text-slate-700'}`}>💳 အကြွေး</button>
+                        <div className="grid grid-cols-2 gap-4">
+                          <button onClick={()=>setPaymentType('Cash')} className={`py-5 rounded-2xl text-base font-black transition-all border-2 ${paymentType==='Cash'?'bg-cyan-500/20 text-cyan-300 border-cyan-500/40':'bg-black/40 text-slate-500 border-white/5 hover:border-cyan-500/20'}`}>💵 လက်ငင်း</button>
+                          <button onClick={()=>setPaymentType('Credit')} className={`py-5 rounded-2xl text-base font-black transition-all border-2 ${paymentType==='Credit'?'bg-rose-500/20 text-rose-300 border-rose-500/40':'bg-black/40 text-slate-500 border-white/5 hover:border-rose-500/20'}`}>💳 အကြွေး</button>
                         </div>
                       )}
-                      <button onClick={entryTab==='Sale'?submitSale:submitPurchase} className={`w-full py-4 rounded-xl font-black text-white text-sm ${entryTab==='Sale'?'bg-gradient-to-r from-cyan-600 to-blue-600':'bg-gradient-to-r from-blue-700 to-indigo-700'}`}>✓ {entryTab==='Sale'?'အရောင်း':'အဝယ်'} သိမ်းမည်</button>
+
+                      <button onClick={entryTab==='Sale'?submitSale:submitPurchase} className={`w-full py-5 rounded-2xl font-black text-white text-xl active:scale-95 transition-all shadow-xl ${entryTab==='Sale'?'bg-gradient-to-r from-cyan-600 to-blue-600 shadow-cyan-500/20':'bg-gradient-to-r from-blue-700 to-indigo-700 shadow-blue-500/20'}`}>
+                        ✓ {entryTab==='Sale'?'အရောင်း':'အဝယ်'} သိမ်းမည်
+                      </button>
                     </div>
                   )}
                 </>
@@ -809,14 +874,28 @@ export default function App() {
         {/* ═══ DASHBOARD ═══ */}
         {view==='Dashboard' && (
           <div className="space-y-5">
-            <div className="grid grid-cols-4 gap-1 bg-[#0d1120] p-1 rounded-xl border border-cyan-500/15">
-              {[['Today','ဒီနေ့'],['Week','၇ရက်'],['Month','၁လ'],['AllTime','အားလုံး']].map(([k,l])=><button key={k} onClick={()=>setDashPeriod(k)} className={`py-3 text-[10px] font-black rounded-lg ${dashPeriod===k?'bg-cyan-600 text-white':'text-cyan-900'}`}>{l}</button>)}
+            <div className="grid grid-cols-4 gap-1.5 bg-[#0d1120] p-1.5 rounded-2xl border border-cyan-500/15">
+              {[['Today','ဒီနေ့'],['Week','၇ရက်'],['Month','၁လ'],['AllTime','အားလုံး']].map(([k,l])=><button key={k} onClick={()=>setDashPeriod(k)} className={`py-4 text-sm font-black rounded-xl transition-all ${dashPeriod===k?'bg-cyan-600 text-white shadow-[0_0_12px_rgba(6,182,212,0.3)]':'text-cyan-600 hover:text-cyan-400'}`}>{l}</button>)}
             </div>
-            {dashPeriod==='Today' && <div className="flex items-center gap-3 bg-[#0d1120] p-4 rounded-xl border border-cyan-500/15"><input type="date" value={selDate} onChange={e=>setSelDate(e.target.value)} className="flex-1 bg-black border border-cyan-500/20 rounded-lg px-3 py-3 text-sm font-bold text-cyan-400 outline-none"/><button onClick={sendDailyReport} className="bg-blue-600/20 border border-blue-500/40 text-blue-400 p-3 rounded-lg"><Send size={18}/></button></div>}
-            <div className={`p-7 rounded-3xl border ${stats.balance>=0?'border-cyan-500/30 bg-cyan-950/15':'border-rose-500/30 bg-rose-950/15'}`}><p className="text-[10px] font-black text-cyan-700 uppercase">ငွေလက်ကျန်</p><p className={`text-4xl font-black ${stats.balance>=0?'text-cyan-400':'text-rose-400'}`}>{fmt(stats.balance)} <span className="text-sm opacity-40">Ks</span></p></div>
-            <div className={`p-5 rounded-2xl border flex items-center justify-between ${stats.profit>=0?'border-emerald-500/20 bg-emerald-950/10':'border-rose-500/20 bg-rose-950/10'}`}><div className="flex items-center gap-3"><div className={`p-3 rounded-xl ${stats.profit>=0?'bg-emerald-500/10 text-emerald-400':'bg-rose-500/10 text-rose-400'}`}><DollarSign size={24}/></div><div><p className="text-[11px] font-black text-slate-500">အသားတင်အမြတ်</p><p className="text-[9px] text-slate-700">(ရောင်းအမြတ် − Discount − စရိတ်)</p></div></div><p className={`text-2xl font-black ${stats.profit>=0?'text-emerald-400':'text-rose-400'}`}>{stats.profit>=0?'+':''}{fmt(stats.profit)}</p></div>
-            <div className="grid grid-cols-2 gap-3">
-              {[['အရောင်း',stats.sales,'text-cyan-400'],['အဝယ်',stats.purchases,'text-blue-400'],['ကြွေးမြီ',stats.debt,'text-rose-400'],['Discount',stats.disc,'text-amber-400'],['စရိတ်',stats.expenses,'text-orange-400']].map(([l,v,c])=><div key={l} className="bg-[#0d1120] p-5 rounded-2xl border border-cyan-500/10"><p className="text-[9px] font-black text-slate-700 uppercase">{l}</p><p className={`text-xl font-black ${c}`}>{fmt(v)}</p></div>)}
+            {dashPeriod==='Today' && (
+              <div className="flex items-center gap-4 bg-[#0d1120] p-5 rounded-2xl border border-cyan-500/15">
+                <input type="date" value={selDate} onChange={e=>setSelDate(e.target.value)} className="flex-1 bg-black border border-cyan-500/20 rounded-xl px-4 py-4 text-lg font-bold text-cyan-400 outline-none" />
+                <button onClick={sendDailyReport} className="bg-blue-600/20 border border-blue-500/40 text-blue-400 p-4 rounded-xl hover:bg-blue-600/40 active:scale-95 transition-all"><Send size={22}/></button>
+              </div>
+            )}
+            <div className={`p-8 rounded-3xl border relative overflow-hidden ${stats.balance>=0?'border-cyan-500/30 bg-cyan-950/15':'border-rose-500/30 bg-rose-950/15'}`}>
+              <p className="text-sm font-black text-cyan-600 uppercase tracking-[0.3em] mb-2">ငွေလက်ကျန် (စုစုပေါင်း)</p>
+              <p className={`text-5xl font-black tracking-tighter ${stats.balance>=0?'text-cyan-400':'text-rose-400'}`}>{fmt(stats.balance)} <span className="text-lg font-normal opacity-40">Ks</span></p>
+            </div>
+            <div className={`p-6 rounded-2xl border flex items-center justify-between ${stats.profit>=0?'border-emerald-500/20 bg-emerald-950/10':'border-rose-500/20 bg-rose-950/10'}`}>
+              <div className="flex items-center gap-4">
+                <div className={`p-4 rounded-2xl ${stats.profit>=0?'bg-emerald-500/10 text-emerald-400':'bg-rose-500/10 text-rose-400'}`}><DollarSign size={28}/></div>
+                <div><p className="text-sm font-black text-slate-400 uppercase tracking-widest">အသားတင် အမြတ်</p><p className="text-xs text-slate-600">(ရောင်းအမြတ် − Discount − စရိတ်)</p></div>
+              </div>
+              <p className={`text-3xl font-black ${stats.profit>=0?'text-emerald-400':'text-rose-400'}`}>{stats.profit>=0?'+':''}{fmt(stats.profit)}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[['အရောင်း',stats.sales,'text-cyan-400'],['အဝယ်',stats.purchases,'text-blue-400'],['ကြွေးမြီ',stats.debt,'text-rose-400'],['Discount',stats.disc,'text-amber-400'],['စရိတ်',stats.expenses,'text-orange-400']].map(([l,v,c])=><div key={l} className={`bg-[#0d1120] p-6 rounded-2xl border border-white/5`}><p className="text-xs font-black text-slate-600 uppercase tracking-widest mb-2">{l}</p><p className={`text-2xl font-black ${c}`}>{fmt(v)}</p></div>)}
             </div>
           </div>
         )}
@@ -824,12 +903,15 @@ export default function App() {
         {/* ═══ REPORTS ═══ */}
         {view==='Reports' && (
           <div className="space-y-5">
-            <div className="bg-[#0d1120] p-6 rounded-3xl border border-cyan-500/15 space-y-4">
-              <h3 className="font-black text-white flex items-center gap-2"><PieChart size={20} className="text-cyan-500"/> အမြတ်အရှုံးစာရင်း</h3>
-              <div className="grid grid-cols-2 gap-3"><div><label className="text-[10px] font-black text-slate-600 block mb-1">စရက်</label><input type="date" value={repStart} onChange={e=>setRepStart(e.target.value)} className="w-full bg-black/50 border border-cyan-500/20 rounded-xl px-3 py-3 text-sm font-bold text-cyan-400 outline-none"/></div><div><label className="text-[10px] font-black text-slate-600 block mb-1">ဆုံးရက်</label><input type="date" value={repEnd} onChange={e=>setRepEnd(e.target.value)} className="w-full bg-black/50 border border-cyan-500/20 rounded-xl px-3 py-3 text-sm font-bold text-cyan-400 outline-none"/></div></div>
-              <div className="space-y-3 pt-4">
-                {[['ရောင်း',reportStats.sales,'cyan'],['ဝယ်',reportStats.purchases,'blue'],['စရိတ်',reportStats.expenses,'amber']].map(([l,v,c])=><div key={l} className={`flex justify-between p-4 rounded-xl bg-${c}-950/20 border border-${c}-500/10`}><span className="text-sm font-bold text-slate-300">{l}</span><span className="text-lg font-black text-cyan-400">{fmt(v)}</span></div>)}
-                <div className="flex justify-between p-5 rounded-xl bg-emerald-950/30 border border-emerald-500/30"><span className="text-sm font-black text-emerald-200">အသားတင်အမြတ်</span><span className="text-2xl font-black text-emerald-400">{fmt(reportStats.profit - reportStats.expenses)}</span></div>
+            <div className="bg-[#0d1120] p-6 rounded-3xl border border-cyan-500/15 shadow-xl space-y-5">
+              <h3 className="font-black text-white flex items-center gap-3 text-xl"><PieChart size={24} className="text-cyan-500"/> အမြတ်အရှုံး အစီရင်ခံစာ</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="text-xs font-black text-slate-500 uppercase mb-2 block">စတင်ရက်</label><input type="date" value={repStart} onChange={e=>setRepStart(e.target.value)} className="w-full bg-black/50 border border-cyan-500/20 rounded-xl px-4 py-4 text-lg font-bold text-cyan-400 outline-none"/></div>
+                <div><label className="text-xs font-black text-slate-500 uppercase mb-2 block">ဆုံးရက်</label><input type="date" value={repEnd} onChange={e=>setRepEnd(e.target.value)} className="w-full bg-black/50 border border-cyan-500/20 rounded-xl px-4 py-4 text-lg font-bold text-cyan-400 outline-none"/></div>
+              </div>
+              <div className="space-y-4 pt-4">
+                {[['စုစုပေါင်း အရောင်း',reportStats.sales,'cyan'],['စုစုပေါင်း အဝယ်',reportStats.purchases,'blue'],['အသုံးစရိတ်များ',reportStats.expenses,'amber']].map(([l,v,c])=><div key={l} className={`flex justify-between p-5 rounded-xl bg-${c}-950/20 border border-${c}-500/10`}><span className="text-base font-bold text-slate-300">{l}</span><span className="text-xl font-black text-cyan-400">{fmt(v)} Ks</span></div>)}
+                <div className="flex justify-between p-6 rounded-xl bg-emerald-950/30 border border-emerald-500/30"><span className="text-base font-black text-emerald-200 uppercase tracking-widest">အသားတင် အမြတ်</span><span className="text-3xl font-black text-emerald-400">{fmt(reportStats.profit - reportStats.expenses)} Ks</span></div>
               </div>
             </div>
           </div>
@@ -838,29 +920,61 @@ export default function App() {
         {/* ═══ LEDGER ═══ */}
         {view==='Ledger' && (
           <div className="space-y-4">
-            <div className="flex gap-3"><div className="relative flex-1"><Search size={18} className="absolute left-3.5 top-3.5 text-slate-700"/><input value={ledSearch} onChange={e=>setLedSearch(e.target.value)} placeholder="ရှာရန်..." className="w-full pl-10 pr-4 py-3 bg-[#0d1120] border border-white/5 rounded-xl text-sm font-bold text-slate-200 outline-none"/></div><button onClick={()=>setShowFilterSheet(true)} className={`px-4 rounded-xl border ${ledFilter!=='All'?'bg-cyan-600/20 border-cyan-500 text-cyan-400':'bg-[#0d1120] border-white/5 text-slate-700'}`}><Filter size={20}/></button></div>
+            <div className="flex gap-4">
+              <div className="relative flex-1"><Search size={22} className="absolute left-4 top-4 text-slate-600"/><input value={ledSearch} onChange={e=>setLedSearch(e.target.value)} placeholder="အမည် / Invoice No ဖြင့် ရှာပါ..." className="w-full pl-12 pr-4 py-4 bg-[#0d1120] border border-white/5 rounded-xl text-lg font-bold text-slate-200 outline-none focus:border-cyan-500/30 placeholder-slate-600 transition-all" /></div>
+              <button onClick={()=>setShowFilterSheet(true)} className={`px-5 rounded-xl border transition-all ${ledFilter!=='All'?'bg-cyan-600/20 border-cyan-500 text-cyan-400':'bg-[#0d1120] border-white/5 text-slate-500'}`}><Filter size={24}/></button>
+            </div>
+
             {ledFilter==='Debtors' ? (
-              <div className="space-y-3">
-                <p className="text-[10px] font-black text-slate-700 uppercase">ကြွေးကျန်သူများ</p>
-                {debtors.length===0?<p className="text-center py-12 text-slate-700 font-bold text-sm">မရှိပါ</p>:debtors.map(d=>(
-                  <div key={d.n} className="bg-[#0d1120] p-5 rounded-2xl border border-rose-500/10 flex items-center justify-between">
-                    <div className="flex items-center gap-4"><div className="bg-rose-500/10 p-3.5 rounded-xl text-rose-400"><User size={24}/></div><div><p className="font-black text-rose-100 text-sm cursor-pointer hover:text-cyan-400" onClick={()=>setHistoryModal({show:true,name:d.n})}>{d.n}</p>{hasPermission('accept_payment') && <button onClick={()=>setPayModal({show:true,name:d.n,debt:d.a,amt:'',date:todayISO()})} className="mt-2 text-[11px] font-black text-blue-400 bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/15"><CreditCard size={14}/> ကြွေးဆပ်</button>}</div></div>
-                    <div className="text-right"><p className="text-2xl font-black text-rose-500">{fmt(d.a)}</p><p className="text-[9px] text-rose-900">ကျန်ရှိ</p></div>
+              <div className="space-y-4">
+                <p className="text-sm font-black text-slate-500 uppercase tracking-widest px-1">ကြွေးကျန်သူများ</p>
+                {debtors.length===0?<div className="text-center py-16 text-slate-500 font-bold text-lg">ကြွေးကျန်သူ မရှိပါ</div>:debtors.map(d=>(
+                  <div key={d.n} className="bg-[#0d1120] p-6 rounded-2xl border border-rose-500/10 flex items-center justify-between hover:border-rose-500/30 transition-all">
+                    <div className="flex items-center gap-5">
+                      <div className="bg-rose-500/10 p-4 rounded-xl text-rose-400"><User size={28}/></div>
+                      <div>
+                        <p className="font-black text-rose-100 text-xl cursor-pointer hover:text-cyan-400" onClick={()=>setHistoryModal({show:true,name:d.n})}>{d.n}</p>
+                        {hasPermission('accept_payment') && (
+                          <button onClick={()=>setPayModal({show:true,name:d.n,debt:d.a,amt:'',date:todayISO()})} className="mt-3 text-sm font-black text-blue-400 bg-blue-500/10 px-4 py-2.5 rounded-xl border border-blue-500/15 flex items-center gap-2 active:scale-95">
+                            <CreditCard size={18}/> ကြွေးဆပ်မည်
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-3xl font-black text-rose-500">{fmt(d.a)}</p>
+                      <p className="text-xs text-rose-700 font-black uppercase mt-1">ကျန်ရှိကြွေးမြီ</p>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredRecs.length===0 && <p className="text-center py-14 text-slate-700 font-bold text-sm">မှတ်တမ်းမရှိ</p>}
+              <div className="space-y-4">
+                {filteredRecs.length===0 && <div className="text-center py-16 text-slate-500 font-bold text-lg">မှတ်တမ်းမရှိသေးပါ</div>}
                 {filteredRecs.map(r=>(
-                  <div key={r.id} className="bg-[#0d1120] p-4 rounded-2xl border border-white/5 hover:border-cyan-500/10 transition-all group">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${r.type==='Sale'?'bg-cyan-500/10 text-cyan-400':r.type==='Purchase'?'bg-blue-500/10 text-blue-400':r.type==='Expense'?'bg-amber-500/10 text-amber-400':'bg-emerald-500/10 text-emerald-400'}`}>{r.type==='Sale'?<ArrowUpRight size={20}/>:r.type==='Purchase'?<ArrowDownRight size={20}/>:r.type==='Expense'?<FileText size={20}/>:<Banknote size={20}/>}</div>
-                      <div className="flex-1 min-w-0"><div className="flex gap-2 items-center"><p className="font-black text-white text-sm">{r.personName||'-'}</p>{r.invoiceNo && <span className="text-[10px] font-mono text-cyan-600 bg-cyan-950/40 px-1.5 py-0.5 rounded">{r.invoiceNo}</span>}</div><p className="text-[11px] text-slate-600 font-bold mt-1 truncate">{r.item||'-'}</p><p className="text-[9px] text-slate-800 font-mono mt-1">{r.date||'-'}</p></div>
-                      <div className="text-right flex-shrink-0"><p className={`font-black text-lg ${r.type==='Purchase'||r.type==='Expense'?'text-orange-400':'text-cyan-400'}`}>{r.type==='Purchase'||r.type==='Expense'?'-':'+'}{fmt(r.amount)}</p>{(Number(r.remainingDebt)||0)>0 && <span className="text-[10px] font-black text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-lg block mt-1">ကျန်:{fmt(r.remainingDebt)}</span>}
-                        <div className="flex gap-2 justify-end mt-2">
-                          {['Sale','Purchase','Payment'].includes(r.type) && <button onClick={()=>setReceiptModal({show:true,record:r})} className="p-1.5 text-slate-700 hover:text-cyan-400 rounded-lg bg-black/30"><Receipt size={14}/></button>}
-                          {hasPermission('delete_records') && <button onClick={()=>setConfirmDel(r)} className="p-1.5 text-slate-700 hover:text-rose-500 rounded-lg bg-black/30"><Trash2 size={14}/></button>}
+                  <div key={r.id} className="bg-[#0d1120] p-5 rounded-2xl border border-white/5 hover:border-cyan-500/10 transition-all group">
+                    <div className="flex items-start gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${r.type==='Sale'?'bg-cyan-500/10 text-cyan-400':r.type==='Purchase'?'bg-blue-500/10 text-blue-400':r.type==='Expense'?'bg-amber-500/10 text-amber-400':'bg-emerald-500/10 text-emerald-400'}`}>
+                        {r.type==='Sale'?<ArrowUpRight size={24}/>:r.type==='Purchase'?<ArrowDownRight size={24}/>:r.type==='Expense'?<FileText size={24}/>:<Banknote size={24}/>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex gap-3 items-center flex-wrap">
+                          <p className="font-black text-white text-xl">{r.personName||'−'}</p>
+                          {r.invoiceNo && <span className="text-xs font-mono text-cyan-400 bg-cyan-950/40 px-2 py-1 rounded">{r.invoiceNo}</span>}
+                        </div>
+                        <p className="text-base text-slate-500 font-bold mt-2 truncate">{r.item||'−'}</p>
+                        <p className="text-xs text-slate-600 font-mono mt-1.5">{r.date||'−'}</p>
+                        {hasPermission('view_reports') && r.type==='Sale' && (r.profit||0)>0 && <p className="text-xs text-emerald-600 font-bold mt-1">Profit: +{fmt(r.profit)} Ks</p>}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`font-black text-2xl ${r.type==='Purchase'||r.type==='Expense'?'text-orange-400':'text-cyan-400'}`}>
+                          {r.type==='Purchase'||r.type==='Expense'?'−':'+'}
+                          {fmt(r.amount)}
+                        </p>
+                        {(Number(r.remainingDebt)||0)>0 && <span className="text-sm font-black text-rose-400 bg-rose-500/10 px-3 py-1 rounded-lg block mt-2">ကျန်: {fmt(r.remainingDebt)}</span>}
+                        <div className="flex gap-3 justify-end mt-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          {['Sale','Purchase','Payment'].includes(r.type) && <button onClick={()=>setReceiptModal({show:true,record:r})} className="p-2.5 text-slate-500 hover:text-cyan-400 transition-colors rounded-xl bg-black/40"><Receipt size={18}/></button>}
+                          {hasPermission('delete_records') && <button onClick={()=>setConfirmDel(r)} className="p-2.5 text-slate-500 hover:text-rose-500 transition-colors rounded-xl bg-black/40"><Trash2 size={18}/></button>}
                         </div>
                       </div>
                     </div>
@@ -874,11 +988,12 @@ export default function App() {
         {/* ═══ ADMIN ═══ */}
         {view==='Admin' && (
           <div className="space-y-5">
-            <div className="grid grid-cols-3 gap-1 bg-[#0d1120] p-1 rounded-xl border border-cyan-500/15">
-              {hasPermission('manage_products') && <button onClick={()=>setAdminTab('Products')} className={`py-3 text-xs font-black rounded-lg ${adminTab==='Products'?'bg-cyan-600 text-white':'text-slate-700'}`}>📦 Products</button>}
-              {(hasPermission('manage_inventory')||hasPermission('view_inventory')) && <button onClick={()=>setAdminTab('Inventory')} className={`py-3 text-xs font-black rounded-lg ${adminTab==='Inventory'?'bg-cyan-600 text-white':'text-slate-700'}`}>📊 Inventory</button>}
-              {hasPermission('manage_users') && <button onClick={()=>setAdminTab('Users')} className={`py-3 text-xs font-black rounded-lg ${adminTab==='Users'?'bg-cyan-600 text-white':'text-slate-700'}`}>👥 Users</button>}
+            <div className="grid grid-cols-3 gap-1.5 bg-[#0d1120] p-1.5 rounded-2xl border border-cyan-500/15">
+              {hasPermission('manage_products') && <button onClick={()=>setAdminTab('Products')} className={`py-4 text-sm font-black rounded-xl transition-all flex items-center justify-center gap-2 ${adminTab==='Products'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300'}`}>📦 Products</button>}
+              {(hasPermission('manage_inventory')||hasPermission('view_inventory')) && <button onClick={()=>setAdminTab('Inventory')} className={`py-4 text-sm font-black rounded-xl transition-all flex items-center justify-center gap-2 ${adminTab==='Inventory'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300'}`}>📊 Inventory</button>}
+              {hasPermission('manage_users') && <button onClick={()=>setAdminTab('Users')} className={`py-4 text-sm font-black rounded-xl transition-all flex items-center justify-center gap-2 ${adminTab==='Users'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300'}`}>👥 Users</button>}
             </div>
+
             {adminTab==='Products' && hasPermission('manage_products') && <ProductsTab products={products} db={db} appId={appId} currentTenant={currentTenant} showToast={showToast} />}
             {adminTab==='Inventory' && (hasPermission('manage_inventory')||hasPermission('view_inventory')) && <InventoryTab products={products} db={db} appId={appId} hasPermission={hasPermission} sendInventoryReport={sendInventoryReport} />}
             {adminTab==='Users' && hasPermission('manage_users') && <UsersTab posUsers={posUsers} db={db} appId={appId} currentTenant={currentTenant} showToast={showToast} currentUser={currentUser} />}
@@ -887,30 +1002,26 @@ export default function App() {
       </main>
 
       {/* Bottom Nav */}
-      <div className="fixed bottom-0 left-0 w-full bg-[#0d1120]/95 backdrop-blur border-t border-cyan-500/10 z-40" style={{paddingBottom:'max(env(safe-area-inset-bottom),0.5rem)'}}>
-        <div className="max-w-lg mx-auto flex items-end justify-around px-2 pt-2 pb-3">
-          {hasPermission('view_reports') && <button onClick={()=>setView('Dashboard')} className={`flex flex-col items-center gap-1.5 ${view==='Dashboard'?'text-cyan-400 scale-110':'text-slate-700'}`}><LayoutDashboard size={22}/><span className="text-[8px] font-black uppercase">Dash</span></button>}
-          {hasPermission('view_sales') && <button onClick={()=>setView('Ledger')} className={`flex flex-col items-center gap-1.5 ${view==='Ledger'?'text-cyan-400 scale-110':'text-slate-700'}`}><Database size={22}/><span className="text-[8px] font-black uppercase">Ledger</span></button>}
-          {(hasPermission('create_sale')||hasPermission('create_purchase')||hasPermission('create_expense')) && <div className="relative -top-5"><button onClick={()=>setView('Entry')} className={`w-16 h-16 rounded-2xl flex items-center justify-center border-[5px] border-[#080c14] shadow-[0_0_20px_rgba(6,182,212,0.3)] ${view==='Entry'?'bg-cyan-500 text-white':'bg-[#0d1120] border-cyan-500/20 text-cyan-600'}`}><ShoppingCart size={26}/></button></div>}
-          {hasPermission('view_reports') && <button onClick={()=>setView('Reports')} className={`flex flex-col items-center gap-1.5 ${view==='Reports'?'text-cyan-400 scale-110':'text-slate-700'}`}><BarChart3 size={22}/><span className="text-[8px] font-black uppercase">Report</span></button>}
-          {(hasPermission('manage_products')||hasPermission('manage_inventory')||hasPermission('manage_users')) && <button onClick={()=>setView('Admin')} className={`flex flex-col items-center gap-1.5 ${view==='Admin'?'text-cyan-400 scale-110':'text-slate-700'}`}><ShieldAlert size={22}/><span className="text-[8px] font-black uppercase">Admin</span></button>}
+      <div className="fixed bottom-0 left-0 w-full bg-[#0d1120]/95 backdrop-blur border-t border-cyan-500/10 z-40" style={{paddingBottom:'max(env(safe-area-inset-bottom),0.8rem)'}}>
+        <div className="max-w-2xl mx-auto flex items-end justify-around px-4 pt-3 pb-4">
+          {hasPermission('view_reports') && <button onClick={()=>setView('Dashboard')} className={`flex flex-col items-center gap-1.5 transition-all ${view==='Dashboard'?'text-cyan-400 scale-110':'text-slate-600 hover:text-slate-400'}`}><LayoutDashboard size={26}/><span className="text-[10px] font-black uppercase tracking-widest">Dash</span></button>}
+          {hasPermission('view_sales') && <button onClick={()=>setView('Ledger')} className={`flex flex-col items-center gap-1.5 transition-all ${view==='Ledger'?'text-cyan-400 scale-110':'text-slate-600 hover:text-slate-400'}`}><Database size={26}/><span className="text-[10px] font-black uppercase tracking-widest">Ledger</span></button>}
+          {(hasPermission('create_sale')||hasPermission('create_purchase')||hasPermission('create_expense')) && (
+            <div className="relative -top-6">
+              <button onClick={()=>setView('Entry')} className={`w-20 h-20 rounded-2xl flex items-center justify-center border-[6px] border-[#080c14] shadow-[0_0_25px_rgba(6,182,212,0.4)] active:scale-95 transition-all ${view==='Entry'?'bg-cyan-500 text-white':'bg-[#0d1120] border-cyan-500/20 text-cyan-500 hover:bg-cyan-950'}`}>
+                <ShoppingCart size={32}/>
+              </button>
+            </div>
+          )}
+          {hasPermission('view_reports') && <button onClick={()=>setView('Reports')} className={`flex flex-col items-center gap-1.5 transition-all ${view==='Reports'?'text-cyan-400 scale-110':'text-slate-600 hover:text-slate-400'}`}><BarChart3 size={26}/><span className="text-[10px] font-black uppercase tracking-widest">Report</span></button>}
+          {(hasPermission('manage_products')||hasPermission('manage_inventory')||hasPermission('manage_users')) && <button onClick={()=>setView('Admin')} className={`flex flex-col items-center gap-1.5 transition-all ${view==='Admin'?'text-cyan-400 scale-110':'text-slate-600 hover:text-slate-400'}`}><ShieldAlert size={26}/><span className="text-[10px] font-black uppercase tracking-widest">Admin</span></button>}
         </div>
       </div>
 
-      {/* Modals */}
-      {confirmDel && <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-[#0d1120] p-8 rounded-3xl border border-rose-500/25 text-center max-w-xs w-full"><Trash2 size={40} className="mx-auto text-rose-500 mb-4"/><h3 className="text-lg font-black text-white mb-2">ဖျက်မှာသေချာလား?</h3><p className="text-xs text-slate-600 mb-6">ပြန်မရပါ</p><div className="flex gap-3"><button onClick={()=>setConfirmDel(null)} className="flex-1 py-3 bg-slate-800 rounded-xl font-black text-sm">မလုပ်တော့</button><button onClick={doDelete} className="flex-1 py-3 bg-rose-600 rounded-xl font-black text-sm">ဖျက်မည်</button></div></div></div>}
+      {/* Modals (same as before, compact for space) */}
+      {confirmDel && <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"><div className="bg-[#0d1120] p-8 rounded-3xl border border-rose-500/25 text-center max-w-sm w-full shadow-2xl"><Trash2 size={48} className="mx-auto text-rose-500 mb-5"/><h3 className="text-2xl font-black text-white mb-3">ဖျက်ရန် သေချာပါသလား?</h3><p className="text-base text-slate-500 mb-8">ဖျက်ပြီးသော မှတ်တမ်းကို နောက်ပြန်မရပါ</p><div className="flex gap-4"><button onClick={()=>setConfirmDel(null)} className="flex-1 py-4 bg-slate-800 rounded-xl font-black text-lg text-white">မလုပ်တော့</button><button onClick={doDelete} className="flex-1 py-4 bg-rose-600 rounded-xl font-black text-lg text-white">ဖျက်မည်</button></div></div></div>}
 
-      {payModal.show && <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-[#0d1120] w-full max-w-xs rounded-3xl p-7 border border-cyan-500/20"><div className="flex justify-between items-center mb-5"><h3 className="font-black text-white">ကြွေးဆပ်ရန်</h3><button onClick={()=>setPayModal({show:false,name:'',debt:0,amt:'',date:todayISO()})} className="text-slate-700"><X size={20}/></button></div><div className="bg-rose-950/30 border border-rose-500/15 p-5 rounded-xl text-center mb-5"><p className="text-sm text-rose-400 font-bold uppercase">{payModal.name}</p><p className="text-3xl font-black text-rose-300">{fmt(payModal.debt)} <span className="text-sm opacity-40">Ks</span></p></div><input type="date" value={payModal.date} onChange={e=>setPayModal(p=>({...p,date:e.target.value}))} className="w-full bg-black/40 border border-cyan-500/15 rounded-xl px-4 py-4 text-sm font-bold text-cyan-300 outline-none mb-4"/><input type="number" autoFocus value={payModal.amt} onChange={e=>setPayModal(p=>({...p,amt:e.target.value}))} placeholder="ဆပ်ငွေ" className="w-full bg-black/40 border border-cyan-500/15 rounded-xl px-4 py-4 text-2xl font-black text-center text-cyan-300 outline-none mb-5"/><button onClick={submitPayment} className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black rounded-xl">✓ အတည်ပြုမည်</button></div></div>}
-
-      {receiptModal.show && <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-[#080c14]/95"><div className="bg-white text-black w-full max-w-sm p-6 shadow-2xl relative font-mono text-xs" style={{backgroundImage:'repeating-linear-gradient(transparent,transparent 24px,#f0f0f0 24px,#f0f0f0 25px)',backgroundSize:'100% 25px'}}><button onClick={()=>setReceiptModal({show:false,record:null})} className="absolute -top-12 right-0 text-white p-2"><X size={28}/></button><div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4"><h2 className="text-xl font-black uppercase">{shopName}</h2><p className="text-[11px] text-gray-500 mt-1">{receiptModal.record?.date}</p><p className="text-[11px] text-gray-800 font-bold mt-1">{receiptModal.record?.invoiceNo||''}</p></div><div className="space-y-1.5 mb-4"><div className="flex justify-between"><span className="font-bold">Type:</span><span>{receiptModal.record?.type}</span></div><div className="flex justify-between"><span className="font-bold">Name:</span><span>{receiptModal.record?.personName}</span></div></div>{receiptModal.record?.itemsDetail?.length>0?<div className="border-t border-b border-dashed border-gray-300 py-3 mb-4 space-y-2">{receiptModal.record.itemsDetail.map((it,i)=><div key={i} className="flex justify-between items-start"><div><span>{it.name} <span className="text-gray-500">×{it.quantity}</span></span>{it.itemDiscountAmt>0&&<span className="block text-[10px] text-gray-500">(-{fmt(it.itemDiscountAmt)} Disc)</span>}</div><span>{fmt((it.unitPrice*it.quantity)-(it.itemDiscountAmt||0))}</span></div>)}</div>:<div className="mb-4 pb-3 border-b border-dashed border-gray-300"><div className="flex justify-between"><span className="font-bold">Item:</span><span>{receiptModal.record?.item}</span></div></div>}{(receiptModal.record?.discount||0)>0&&<div className="flex justify-between mb-1 text-gray-600"><span>Global Disc:</span><span>-{fmt(receiptModal.record.discount)}</span></div>}<div className="flex justify-between font-black text-xl mb-5 pt-2 border-t border-gray-300"><span>TOTAL</span><span>{fmt(receiptModal.record?.amount)}</span></div><div className="flex gap-3"><button onClick={()=>doPrint(receiptModal.record,shopName)} className="flex-1 py-3 bg-gray-900 text-white rounded-xl font-black text-sm">🖨 Print</button><button onClick={()=>setReceiptModal({show:false,record:null})} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-black text-sm">Close</button></div></div></div>}
-
-      {historyModal.show && <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/85"><div className="bg-[#0d1120] w-full max-w-sm rounded-3xl p-7 border border-cyan-500/20 max-h-[85vh] flex flex-col"><div className="flex justify-between items-center mb-5"><h3 className="font-black text-white flex items-center gap-2">📜 {historyModal.name}</h3><button onClick={()=>setHistoryModal({show:false,name:''})} className="text-slate-700"><X size={20}/></button></div><div className="overflow-y-auto space-y-3 flex-1">{histRecords.map(r=><div key={r.id} className="bg-black/50 p-4 rounded-2xl border border-cyan-500/10"><div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-black px-2 py-1 rounded uppercase ${r.type==='Sale'?'bg-rose-500/20 text-rose-400':'bg-emerald-500/20 text-emerald-400'}`}>{r.type==='Sale'?'ကြွေးယူ':'ကြွေးဆပ်'}</span><span className="text-[10px] text-slate-700">{(r.date||'').split(',')[0]}</span></div><div className="flex justify-between items-end mb-2"><p className="text-xs text-slate-600 font-bold truncate max-w-[150px]">{r.item}</p><p className={`text-lg font-black ${r.type==='Sale'?'text-rose-400':'text-emerald-400'}`}>{fmt(r.amount)}</p></div><div className="border-t border-white/5 pt-2 text-right"><p className="text-[11px] text-slate-500">လက်ကျန်: <span className="font-black text-slate-300">{fmt(r.runningBal)}</span></p></div></div>)}</div></div></div>}
-
-      {showFilterSheet && <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/70" onClick={()=>setShowFilterSheet(false)}><div className="bg-[#0d1120] w-full max-w-lg rounded-t-3xl p-7 border-t border-cyan-500/15" onClick={e=>e.stopPropagation()}><div className="flex justify-between items-center mb-5"><h3 className="font-black text-white uppercase">စစ်ထုတ်ရန်</h3><button onClick={()=>setShowFilterSheet(false)} className="text-slate-700"><X size={20}/></button></div><div className="space-y-3">{[['All','အားလုံး'],['Sale','အရောင်း'],['Purchase','အဝယ်'],['Expense','အသုံးစရိတ်'],['Payment','ကြွေးဆပ်'],['Debtors','ကြွေးကျန်သူများ']].map(([k,l])=><button key={k} onClick={()=>{setLedFilter(k);setShowFilterSheet(false);}} className={`w-full flex justify-between items-center p-5 rounded-2xl border text-sm font-black ${ledFilter===k?'bg-cyan-600/20 border-cyan-500 text-cyan-300':'bg-black/40 border-white/5 text-slate-600'}`}><span>{l}</span>{ledFilter===k&&<Zap size={18}/>}</button>)}</div></div></div>}
-
-      {showSettings && <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 overflow-y-auto"><div className="bg-[#0d1120] w-full max-w-sm rounded-3xl p-7 border border-cyan-500/15 my-4"><div className="flex justify-between items-center mb-6"><h2 className="font-black text-white flex items-center gap-2"><SettingsIcon size={20} className="text-cyan-500"/> Settings</h2><button onClick={()=>setShowSettings(false)} className="text-slate-700"><X size={20}/></button></div><div className="space-y-5 mb-6"><div><p className="text-[10px] font-black text-slate-600 uppercase mb-2">ဆိုင်အမည်</p><input value={shopName} onChange={e=>setShopName(e.target.value)} className="w-full bg-black/40 border border-cyan-500/15 rounded-xl px-4 py-4 text-sm font-bold text-slate-200 outline-none"/></div><div className="pt-4 border-t border-white/5"><p className="text-[10px] font-black text-blue-400 uppercase mb-3">📱 Telegram</p><input value={tgToken} onChange={e=>setTgToken(e.target.value)} placeholder="Bot Token" className="w-full bg-black/40 border border-blue-500/15 rounded-xl px-4 py-4 text-sm font-mono text-blue-300 outline-none mb-3"/><input value={tgChatId} onChange={e=>setTgChatId(e.target.value)} placeholder="Chat ID" className="w-full bg-black/40 border border-blue-500/15 rounded-xl px-4 py-4 text-sm font-mono text-blue-300 outline-none"/></div><button onClick={saveSettings} className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black rounded-xl">💾 သိမ်းမည်</button></div><div className="border-t border-white/5 pt-6 grid grid-cols-2 gap-4"><button onClick={exportAllCSV} className="col-span-2 py-5 bg-cyan-950/40 border border-cyan-500/20 text-cyan-400 rounded-2xl font-black text-xs flex flex-col items-center gap-2"><Archive size={24}/><span>CSV Download</span></button><button onClick={backupToTelegram} className="col-span-2 py-5 bg-blue-950/40 border border-blue-500/20 text-blue-400 rounded-2xl font-black text-xs flex flex-col items-center gap-2"><Cloud size={24}/><span>Telegram Backup</span></button><button onClick={()=>fileRef.current?.click()} className="col-span-2 py-5 bg-slate-900/80 border border-white/10 text-slate-400 rounded-2xl font-black text-xs flex flex-col items-center gap-2"><Upload size={20}/><span>CSV Import</span></button></div><input type="file" accept=".csv" multiple ref={fileRef} onChange={handleImportAll} className="hidden"/></div></div>}
-
-      {showScanner && <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm"><div className="bg-[#0d1120] p-6 rounded-3xl border border-cyan-500/20 w-full max-w-lg mx-4"><div className="flex justify-between items-center mb-4"><h3 className="font-black text-white">Barcode ဖတ်မည်</h3><button onClick={()=>setShowScanner(false)} className="text-slate-700 hover:text-rose-400"><X size={20}/></button></div><div id="barcode-reader" className="w-full overflow-hidden rounded-xl" style={{minHeight:'200px'}}></div></div></div>}
+      {showScanner && <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm"><div className="bg-[#0d1120] p-6 rounded-3xl border border-cyan-500/20 w-full max-w-lg mx-4"><div className="flex justify-between items-center mb-4"><h3 className="font-black text-white text-xl">Barcode / QR ဖတ်မည်</h3><button onClick={()=>setShowScanner(false)} className="text-slate-400 hover:text-rose-400 p-2"><X size={28}/></button></div><div id="barcode-reader" className="w-full overflow-hidden rounded-xl" style={{minHeight:'220px'}}></div></div></div>}
     </div>
   );
 }
@@ -931,14 +1042,14 @@ function SetupScreen({ onSetup }) {
   };
   return (
     <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
-      <div className="bg-[#0d1120] p-8 sm:p-10 rounded-3xl border border-cyan-500/25 shadow-[0_0_40px_rgba(6,182,212,0.15)] w-full max-w-sm">
-        <div className="text-center mb-8"><MonitorPlay size={48} className="mx-auto text-cyan-500 mb-4"/><h2 className="text-2xl font-black text-white uppercase">Cyber POS</h2><p className="text-xs text-cyan-600 font-bold mt-1">ပထမဆုံး Admin အကောင့်ဖွင့်ပါ</p></div>
-        {err && <p className="text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl mb-5 text-center">{err}</p>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="ဆိုင်အမည်" className="w-full px-4 py-4 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-sm outline-none"/>
-          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Admin Username" className="w-full px-4 py-4 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-sm outline-none"/>
-          <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-4 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-sm outline-none pr-12"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-4 top-4 text-slate-600">{show?<EyeOff size={20}/>:<Eye size={20}/>}</button></div>
-          <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-4 rounded-xl text-sm">Admin အကောင့်ဖွင့်မည်</button>
+      <div className="bg-[#0d1120] p-8 sm:p-10 rounded-3xl border border-cyan-500/25 shadow-[0_0_40px_rgba(6,182,212,0.15)] w-full max-w-md">
+        <div className="text-center mb-8"><MonitorPlay size={56} className="mx-auto text-cyan-500 mb-5"/><h2 className="text-3xl font-black text-white uppercase">Cyber POS</h2><p className="text-base text-cyan-400 font-bold mt-2">Admin အကောင့်ဖွင့်ပါ</p></div>
+        {err && <p className="text-base font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl mb-6 text-center">{err}</p>}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="ဆိုင်အမည်" className="w-full px-5 py-5 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Admin Username" className="w-full px-5 py-5 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+          <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-5 py-5 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-xl outline-none focus:border-cyan-400 transition-all pr-14 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-5 top-5 text-slate-500 hover:text-slate-300">{show?<EyeOff size={24}/>:<Eye size={24}/>}</button></div>
+          <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-5 rounded-xl text-xl active:scale-95 transition-all shadow-lg shadow-cyan-500/20">Admin အကောင့်ဖွင့်မည်</button>
         </form>
       </div>
     </div>
@@ -961,13 +1072,13 @@ function AuthScreen({ allUsers, onLogin }) {
   };
   return (
     <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
-      <div className="bg-[#0d1120] p-8 sm:p-10 rounded-3xl border border-cyan-500/25 shadow-[0_0_40px_rgba(6,182,212,0.15)] w-full max-w-sm">
-        <div className="text-center mb-8"><MonitorPlay size={48} className="mx-auto text-cyan-500 mb-4"/><h2 className="text-2xl font-black text-white uppercase">Cyber POS</h2><p className="text-xs text-cyan-600 font-bold mt-1">PRO VERSION 17</p></div>
-        {err && <p className="text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl mb-5 text-center">{err}</p>}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Username" className="w-full px-4 py-4 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-sm outline-none"/>
-          <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-4 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-sm outline-none pr-12"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-4 top-4 text-slate-600">{show?<EyeOff size={20}/>:<Eye size={20}/>}</button></div>
-          <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-4 rounded-xl text-sm mt-2">Login ဝင်မည်</button>
+      <div className="bg-[#0d1120] p-8 sm:p-10 rounded-3xl border border-cyan-500/25 shadow-[0_0_40px_rgba(6,182,212,0.15)] w-full max-w-md">
+        <div className="text-center mb-8"><MonitorPlay size={56} className="mx-auto text-cyan-500 mb-5"/><h2 className="text-3xl font-black text-white uppercase">Cyber POS</h2><p className="text-base text-cyan-400 font-bold mt-2">PRO VERSION 18</p></div>
+        {err && <p className="text-base font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl mb-6 text-center">{err}</p>}
+        <form onSubmit={handleLogin} className="space-y-5">
+          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Username" className="w-full px-5 py-5 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+          <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-5 py-5 bg-black/50 border border-cyan-500/20 rounded-xl text-slate-200 font-bold text-xl outline-none focus:border-cyan-400 transition-all pr-14 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-5 top-5 text-slate-500 hover:text-slate-300">{show?<EyeOff size={24}/>:<Eye size={24}/>}</button></div>
+          <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-5 rounded-xl text-xl active:scale-95 transition-all shadow-lg shadow-cyan-500/20">Login ဝင်မည်</button>
         </form>
       </div>
     </div>
@@ -1028,37 +1139,67 @@ function ProductsTab({ products, db, appId, currentTenant, showToast }) {
   const cancelEdit = () => { setEditing(null); resetForm(); };
 
   return (
-    <div className="bg-[#0d1120] border border-cyan-500/15 rounded-3xl p-6">
-      <div className="flex justify-between items-center mb-5"><h3 className="font-black text-white flex items-center gap-2"><Package size={20}/> ကုန်ပစ္စည်းများ</h3><button onClick={()=>{setAdding(!adding);cancelEdit();}} className="bg-cyan-900/40 text-cyan-400 px-4 py-2 rounded-xl font-black text-xs flex items-center gap-1.5"><Plus size={16}/> ထည့်</button></div>
+    <div className="bg-[#0d1120] border border-cyan-500/15 rounded-3xl p-6 shadow-lg">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-black text-white flex items-center gap-3 text-xl"><Package size={24}/> ကုန်ပစ္စည်းများ</h3>
+        <button onClick={()=>{setAdding(!adding);cancelEdit();}} className="bg-cyan-900/40 text-cyan-400 px-5 py-3 rounded-xl font-black text-base flex items-center gap-2 hover:bg-cyan-900/60 transition-all"><Plus size={20}/> ထည့်မည်</button>
+      </div>
       {(adding||editing) && (
-        <form onSubmit={handleSave} className="bg-black/40 p-5 rounded-2xl border border-cyan-500/15 mb-5 space-y-4">
-          <p className="text-[10px] font-black text-cyan-400 uppercase">{editing?'ပြင်မည်':'ထည့်မည်'}</p>
-          <input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="ပစ္စည်းအမည်" className="w-full px-4 py-3 bg-black border border-cyan-500/15 rounded-xl text-sm font-bold text-slate-200 outline-none"/>
-          <div className="grid grid-cols-2 gap-3">
-            <input value={form.category} onChange={e=>setForm({...form,category:e.target.value})} placeholder="အမျိုးအစား" className="px-4 py-3 bg-black border border-cyan-500/15 rounded-xl text-sm font-bold text-slate-300 outline-none"/>
-            <div className="flex gap-2"><input value={form.barcode} onChange={e=>setForm({...form,barcode:e.target.value})} placeholder="Barcode" className="flex-1 px-4 py-3 bg-black border border-cyan-500/15 rounded-xl text-sm font-bold text-slate-300 outline-none"/><button type="button" onClick={()=>setShowProductScanner(true)} className="p-3 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400"><ScanBarcode size={18}/></button></div>
+        <form onSubmit={handleSave} className="bg-black/40 p-6 rounded-2xl border border-cyan-500/15 mb-6 space-y-5">
+          <p className="text-sm font-black text-cyan-400 uppercase tracking-widest">{editing?'✏ ပြင်ဆင်မည်':'+ ထည့်သွင်းမည်'}</p>
+          <input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="ပစ္စည်းအမည်" className="w-full px-4 py-4 bg-black border border-cyan-500/15 rounded-xl text-lg font-bold text-slate-200 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <input value={form.category} onChange={e=>setForm({...form,category:e.target.value})} placeholder="အမျိုးအစား (ဥပမာ - Food)" className="px-4 py-4 bg-black border border-cyan-500/15 rounded-xl text-lg font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+            <div className="flex gap-3">
+              <input value={form.barcode} onChange={e=>setForm({...form,barcode:e.target.value})} placeholder="Barcode Code" className="flex-1 px-4 py-4 bg-black border border-cyan-500/15 rounded-xl text-lg font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+              <button type="button" onClick={()=>setShowProductScanner(true)} className="p-4 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400 hover:bg-blue-600/30 active:scale-95 transition-all flex-shrink-0"><ScanBarcode size={22}/></button>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <input required type="number" value={form.costPrice} onChange={e=>setForm({...form,costPrice:e.target.value})} placeholder="ဝယ်ဈေး" className="px-4 py-3 bg-black border border-blue-500/15 rounded-xl text-sm font-bold text-blue-300 outline-none"/>
-            <input required type="number" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} placeholder="ရောင်းဈေး" className="px-4 py-3 bg-black border border-cyan-500/15 rounded-xl text-sm font-bold text-cyan-300 outline-none"/>
+          <div className="grid grid-cols-2 gap-4">
+            <input required type="number" value={form.costPrice} onChange={e=>setForm({...form,costPrice:e.target.value})} placeholder="ဝယ်/အရင်းဈေး" className="px-4 py-4 bg-black border border-blue-500/15 rounded-xl text-lg font-bold text-blue-300 outline-none focus:border-blue-400 transition-all placeholder-slate-600"/>
+            <input required type="number" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} placeholder="ရောင်းဈေး" className="px-4 py-4 bg-black border border-cyan-500/15 rounded-xl text-lg font-bold text-cyan-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <input value={form.unit} onChange={e=>setForm({...form,unit:e.target.value})} placeholder="Unit" className="px-4 py-3 bg-black border border-cyan-500/15 rounded-xl text-sm font-bold text-slate-300 outline-none"/>
-            <input type="number" value={form.minStock} onChange={e=>setForm({...form,minStock:e.target.value})} placeholder="Min Stock" className="px-4 py-3 bg-black border border-amber-500/15 rounded-xl text-sm font-bold text-amber-300 outline-none"/>
+          <div className="grid grid-cols-2 gap-4">
+            <input value={form.unit} onChange={e=>setForm({...form,unit:e.target.value})} placeholder="Unit (ခု/kg)" className="px-4 py-4 bg-black border border-cyan-500/15 rounded-xl text-lg font-bold text-slate-300 outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+            <input type="number" value={form.minStock} onChange={e=>setForm({...form,minStock:e.target.value})} placeholder="Min Stock" className="px-4 py-4 bg-black border border-amber-500/15 rounded-xl text-lg font-bold text-amber-300 outline-none focus:border-amber-400 transition-all placeholder-slate-600"/>
           </div>
-          {form.price && form.costPrice && +form.price>0 && <p className="text-xs text-emerald-500 font-bold bg-emerald-950/30 border border-emerald-500/15 px-4 py-3 rounded-xl">Margin: {(+form.price-+form.costPrice).toLocaleString()} Ks ({((+form.price-+form.costPrice)/+form.price*100).toFixed(1)}%)</p>}
-          <div className="flex gap-3"><button type="submit" className="flex-1 py-4 bg-cyan-600 text-white rounded-xl font-black text-sm flex items-center justify-center gap-1.5"><Save size={18}/>သိမ်းမည်</button><button type="button" onClick={()=>{setAdding(false);cancelEdit();}} className="px-6 py-4 bg-slate-800 text-slate-400 rounded-xl font-black text-sm">မလုပ်တော့</button></div>
+          {form.price && form.costPrice && +form.price>0 && (
+            <p className="text-base text-emerald-400 font-bold bg-emerald-950/30 border border-emerald-500/15 px-5 py-4 rounded-xl">
+              Margin: {(+form.price-+form.costPrice).toLocaleString()} Ks ({((+form.price-+form.costPrice)/+form.price*100).toFixed(1)}%)
+            </p>
+          )}
+          <div className="flex gap-4 pt-2">
+            <button type="submit" className="flex-1 py-5 bg-cyan-600 text-white rounded-xl font-black text-lg flex items-center justify-center gap-2 hover:bg-cyan-500 transition-all"><Save size={20}/> သိမ်းမည်</button>
+            <button type="button" onClick={()=>{setAdding(false);cancelEdit();}} className="px-6 py-5 bg-slate-800 text-slate-400 rounded-xl font-black text-lg hover:bg-slate-700 transition-all">မလုပ်တော့</button>
+          </div>
         </form>
       )}
-      <div className="space-y-3 max-h-[55vh] overflow-y-auto">
-        {products.length===0 && <p className="text-center text-slate-700 text-sm py-10">မရှိသေး</p>}
+      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+        {products.length===0 && <p className="text-center text-slate-500 text-lg py-12">ကုန်ပစ္စည်း မရှိသေးပါ</p>}
         {products.map(p=>(
           <div key={p.id} className="bg-black/30 p-5 rounded-2xl border border-cyan-500/8 hover:border-cyan-500/20 transition-all group">
-            <div className="flex justify-between items-start"><div className="flex-1"><div className="flex gap-2 items-center mb-1"><p className="font-black text-white text-sm truncate">{p.name}</p><span className="text-[9px] bg-slate-800 px-2 py-1 rounded text-slate-300">{p.category||'General'}</span></div><div className="flex items-center gap-3 mt-2"><span className="text-[11px] text-blue-500 font-bold">ဝယ်:{fmt(p.costPrice)}</span><span className="text-[11px] text-cyan-400 font-bold">ရောင်း:{fmt(p.price)}</span>{p.price>0&&p.costPrice>0&&<span className="text-[10px] text-emerald-600 font-bold">{((p.price-p.costPrice)/p.price*100).toFixed(0)}%</span>}</div>{p.barcode&&<p className="text-[10px] font-mono text-slate-500 mt-2">BC:{p.barcode}</p>}</div><div className="flex gap-2 ml-3 opacity-100 sm:opacity-60 sm:group-hover:opacity-100"><button onClick={()=>startEdit(p)} className="p-2 bg-indigo-950/50 border border-indigo-500/20 text-indigo-400 rounded-xl"><Edit3 size={16}/></button><button onClick={async ()=>{await deleteDoc(doc(db,'artifacts',appId,'public','data','pos_products',p.id));}} className="p-2 bg-rose-950/50 border border-rose-500/20 text-rose-400 rounded-xl"><Trash2 size={16}/></button></div></div>
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <div className="flex gap-3 items-center mb-2 flex-wrap">
+                  <p className="font-black text-white text-xl truncate">{p.name}</p>
+                  <span className="text-xs bg-slate-800 px-3 py-1.5 rounded-lg text-slate-300">{p.category||'General'}</span>
+                </div>
+                <div className="flex items-center gap-4 mt-2 flex-wrap">
+                  <span className="text-base text-blue-400 font-bold">ဝယ်: {fmt(p.costPrice)}</span>
+                  <span className="text-base text-cyan-400 font-bold">ရောင်း: {fmt(p.price)}</span>
+                  {p.price>0 && p.costPrice>0 && <span className="text-sm text-emerald-500 font-bold">{((p.price-p.costPrice)/p.price*100).toFixed(0)}% margin</span>}
+                </div>
+                {p.barcode && <p className="text-sm font-mono text-slate-600 mt-2">BC: {p.barcode}</p>}
+              </div>
+              <div className="flex gap-3 ml-4 opacity-100 sm:opacity-60 sm:group-hover:opacity-100 transition-opacity">
+                <button onClick={()=>startEdit(p)} className="p-3 bg-indigo-950/50 border border-indigo-500/20 text-indigo-400 rounded-xl hover:bg-indigo-900/50 transition-all"><Edit3 size={20}/></button>
+                <button onClick={async ()=>{await deleteDoc(doc(db,'artifacts',appId,'public','data','pos_products',p.id));}} className="p-3 bg-rose-950/50 border border-rose-500/20 text-rose-400 rounded-xl hover:bg-rose-900/50 transition-all"><Trash2 size={20}/></button>
+              </div>
+            </div>
           </div>
         ))}
       </div>
-      {showProductScanner && <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80"><div className="bg-[#0d1120] p-6 rounded-3xl border border-cyan-500/20 w-full max-w-lg mx-4"><div className="flex justify-between items-center mb-4"><h3 className="font-black text-white">Barcode ဖတ်မည်</h3><button onClick={()=>setShowProductScanner(false)} className="text-slate-700 hover:text-rose-400"><X size={20}/></button></div><div id="product-barcode-reader" className="w-full overflow-hidden rounded-xl" style={{minHeight:'200px'}}></div></div></div>}
+      {showProductScanner && <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80"><div className="bg-[#0d1120] p-6 rounded-3xl border border-cyan-500/20 w-full max-w-lg mx-4"><div className="flex justify-between items-center mb-4"><h3 className="font-black text-white text-xl">Barcode ဖတ်မည်</h3><button onClick={()=>setShowProductScanner(false)} className="text-slate-400 hover:text-rose-400 p-2"><X size={28}/></button></div><div id="product-barcode-reader" className="w-full overflow-hidden rounded-xl" style={{minHeight:'220px'}}></div></div></div>}
     </div>
   );
 }
@@ -1069,14 +1210,29 @@ function ProductsTab({ products, db, appId, currentTenant, showToast }) {
 function InventoryTab({ products, db, appId, hasPermission, sendInventoryReport }) {
   const canManage = hasPermission('manage_inventory');
   return (
-    <div className="bg-[#0d1120] border border-blue-500/15 rounded-3xl p-6">
-      <div className="flex justify-between items-center mb-5"><h3 className="font-black text-white flex items-center gap-2"><Boxes size={20}/> Inventory</h3><button onClick={sendInventoryReport} className="bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-2 rounded-xl font-black text-[10px] flex items-center gap-1.5"><Send size={14}/> Telegram</button></div>
-      <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-        {products.length===0 && <p className="text-center text-slate-700 text-sm py-10">မရှိသေး</p>}
+    <div className="bg-[#0d1120] border border-blue-500/15 rounded-3xl p-6 shadow-lg">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-black text-white flex items-center gap-3 text-xl"><Boxes size={24}/> ကုန်လက်ကျန်</h3>
+        <button onClick={sendInventoryReport} className="bg-blue-600/20 text-blue-400 border border-blue-500/30 px-4 py-3 rounded-xl font-black text-sm flex items-center gap-2 active:scale-95 hover:bg-blue-600/30 transition-all"><Send size={18}/> Telegram သို့ပို့မည်</button>
+      </div>
+      <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
+        {products.length===0 && <p className="text-center text-slate-500 text-lg py-12">ကုန်ပစ္စည်း မရှိသေးပါ</p>}
         {products.map(p=>(
-          <div key={p.id} className={`p-5 rounded-2xl border flex justify-between items-center ${(Number(p.stock)||0)<=(Number(p.minStock)||5)?'bg-amber-950/20 border-amber-500/20':'bg-black/30 border-cyan-500/8'}`}>
-            <div><p className="font-black text-white text-sm">{p.name}</p><p className="text-[11px] text-slate-500 font-bold mt-1">{fmt(p.price)} Ks · min:{p.minStock||5} {p.unit}</p></div>
-            <div className="flex flex-col items-end gap-1"><span className="text-[9px] text-slate-600 font-black uppercase">Stock</span><input type="number" defaultValue={p.stock||0} readOnly={!canManage} onBlur={async e=>{if(!canManage)return;const v=Number(e.target.value);if(v!==(p.stock||0))await setDoc(doc(db,'artifacts',appId,'public','data','pos_products',p.id),{stock:v},{merge:true});}} className={`w-24 text-center font-black text-sm px-2 py-2 rounded-xl outline-none border ${!canManage?'bg-black text-slate-500 border-white/5 cursor-not-allowed':(Number(p.stock)||0)<=(Number(p.minStock)||5)?'bg-amber-950/40 border-amber-500/40 text-amber-300':'bg-black/50 border-blue-500/30 text-blue-300'}`}/></div>
+          <div key={p.id} className={`p-5 rounded-2xl border flex justify-between items-center transition-all ${(Number(p.stock)||0)<=(Number(p.minStock)||5)?'bg-amber-950/20 border-amber-500/20':'bg-black/30 border-cyan-500/8'}`}>
+            <div className="pr-4">
+              <p className="font-black text-white text-xl">{p.name}</p>
+              <p className="text-base text-slate-400 font-bold mt-1.5">{fmt(p.price)} Ks · min: {p.minStock||5} {p.unit}</p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <span className="text-xs text-slate-500 font-black uppercase">Stock</span>
+              <input
+                type="number"
+                defaultValue={p.stock||0}
+                readOnly={!canManage}
+                onBlur={async e=>{if(!canManage)return;const v=Number(e.target.value);if(v!==(p.stock||0))await setDoc(doc(db,'artifacts',appId,'public','data','pos_products',p.id),{stock:v},{merge:true});}}
+                className={`w-28 text-center font-black text-xl px-3 py-3 rounded-xl outline-none border transition-all ${!canManage?'bg-black text-slate-500 border-white/5 cursor-not-allowed':(Number(p.stock)||0)<=(Number(p.minStock)||5)?'bg-amber-950/40 border-amber-500/40 text-amber-300 focus:border-amber-400':'bg-black/50 border-blue-500/30 text-blue-300 focus:border-blue-400'}`}
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -1096,7 +1252,7 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
   const handleAdd = async e => {
     e.preventDefault();
     if (!form.username.trim() || !form.password.trim()) return;
-    if (posUsers.some(u => u.username === form.username.trim())) { showToast('Username ရှိပြီးသား', 'err'); return; }
+    if (posUsers.some(u => u.username === form.username.trim())) { showToast('Username ရှိပြီးသားပါ', 'err'); return; }
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), {
         tenantId: currentTenant, username: form.username.trim(),
@@ -1105,7 +1261,7 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
         createdAt: Date.now(),
       });
       setForm({ username: '', password: '', role: 'staff' }); setAdding(false);
-      showToast('ဖွင့်ပြီး ✓');
+      showToast('အကောင့်ဖွင့်ပြီးပါပြီ ✓');
     } catch { showToast('Error', 'err'); }
   };
 
@@ -1115,32 +1271,51 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
   };
 
   return (
-    <div className="bg-[#0d1120] border border-indigo-500/15 rounded-3xl p-6">
-      <div className="flex justify-between items-center mb-5"><h3 className="font-black text-white flex items-center gap-2"><Users size={20}/> ဝန်ထမ်းများ</h3><button onClick={()=>setAdding(!adding)} className="bg-indigo-900/40 text-indigo-400 px-4 py-2 rounded-xl font-black text-xs flex items-center gap-1.5"><Plus size={16}/> ထည့်</button></div>
+    <div className="bg-[#0d1120] border border-indigo-500/15 rounded-3xl p-6 shadow-lg">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-black text-white flex items-center gap-3 text-xl"><Users size={24}/> ကိုယ့်ဆိုင်ဝန်ထမ်းများ</h3>
+        <button onClick={()=>setAdding(!adding)} className="bg-indigo-900/40 text-indigo-400 px-5 py-3 rounded-xl font-black text-base flex items-center gap-2 hover:bg-indigo-900/60 transition-all"><Plus size={20}/> ထည့်မည်</button>
+      </div>
       {adding && (
-        <form onSubmit={handleAdd} className="bg-black/40 p-5 rounded-2xl border border-indigo-500/15 mb-5 space-y-4">
-          <input required value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="Username" className="w-full px-4 py-3 bg-black border border-indigo-500/15 rounded-xl text-sm font-bold text-slate-200 outline-none"/>
-          <div className="relative"><input required type={show?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password" className="w-full px-4 py-3 bg-black border border-indigo-500/15 rounded-xl text-sm font-bold text-slate-200 outline-none pr-12"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-4 top-3.5 text-slate-600"><EyeOff size={18}/></button></div>
-          <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})} className="w-full px-4 py-3 bg-black border border-indigo-500/15 rounded-xl text-sm font-bold text-slate-200 outline-none"><option value="staff">Staff</option><option value="admin">Admin</option></select>
-          <div className="flex gap-3"><button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-black text-sm">✓ ဖွင့်မည်</button><button type="button" onClick={()=>setAdding(false)} className="px-6 py-4 bg-slate-800 text-slate-400 rounded-xl font-black text-sm">မလုပ်တော့</button></div>
+        <form onSubmit={handleAdd} className="bg-black/40 p-6 rounded-2xl border border-indigo-500/15 mb-6 space-y-5">
+          <input required value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="Username" className="w-full px-4 py-4 bg-black border border-indigo-500/15 rounded-xl text-lg font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all placeholder-slate-600"/>
+          <div className="relative"><input required type={show?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Password" className="w-full px-4 py-4 bg-black border border-indigo-500/15 rounded-xl text-lg font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all pr-14 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-5 top-5 text-slate-500"><EyeOff size={22}/></button></div>
+          <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})} className="w-full px-4 py-4 bg-black border border-indigo-500/15 rounded-xl text-lg font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all">
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+          </select>
+          <div className="flex gap-4 pt-2">
+            <button type="submit" className="flex-1 py-5 bg-indigo-600 text-white rounded-xl font-black text-lg hover:bg-indigo-500 transition-all">✓ ဖွင့်မည်</button>
+            <button type="button" onClick={()=>setAdding(false)} className="px-6 py-5 bg-slate-800 text-slate-400 rounded-xl font-black text-lg hover:bg-slate-700 transition-all">မလုပ်တော့</button>
+          </div>
         </form>
       )}
-      <div className="space-y-3 max-h-96 overflow-y-auto">
+      <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
         {posUsers.map(u=>(
           <div key={u.id} className="bg-black/30 p-5 rounded-2xl border border-indigo-500/8">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-indigo-950/60 flex items-center justify-center text-indigo-400 font-black text-sm">{u.username?.[0]?.toUpperCase()||'?'}</div><div><p className="font-black text-white text-sm">{u.username}</p><span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${u.role==='admin'?'bg-indigo-500/20 text-indigo-400':'bg-cyan-500/20 text-cyan-400'}`}>{u.role}</span></div></div>
-              <div className="flex items-center gap-2">
-                <button onClick={()=>setEditingPerms(editingPerms===u.id?null:u.id)} className="text-[11px] text-indigo-400 bg-indigo-500/10 px-3 py-2 rounded-xl border border-indigo-500/20 flex items-center gap-1.5"><ShieldCheck size={14}/> {editingPerms===u.id?'ပိတ်':'ခွင့်ပြုချက်'}</button>
-                {u.username!==currentUser.username && <button onClick={async ()=>{if(u.role==='admin'&&posUsers.filter(x=>x.role==='admin').length<=1){showToast('Admin အနည်းဆုံး ၁ ခုရှိရမည်','err');return;}await deleteDoc(doc(db,'artifacts',appId,'public','data','pos_users',u.id));}} className="text-rose-700 hover:text-rose-400 p-2"><Trash2 size={18}/></button>}
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-indigo-950/60 flex items-center justify-center text-indigo-400 font-black text-xl">{u.username?.[0]?.toUpperCase()||'?'}</div>
+                <div>
+                  <p className="font-black text-white text-xl">{u.username}</p>
+                  <span className={`text-xs font-black px-3 py-1 rounded uppercase ${u.role==='admin'?'bg-indigo-500/20 text-indigo-400':'bg-cyan-500/20 text-cyan-400'}`}>{u.role}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={()=>setEditingPerms(editingPerms===u.id?null:u.id)} className="text-sm text-indigo-400 bg-indigo-500/10 px-4 py-2.5 rounded-xl border border-indigo-500/20 flex items-center gap-2 active:scale-95 hover:bg-indigo-500/20 transition-all">
+                  <ShieldCheck size={18}/> {editingPerms===u.id?'ပိတ်မည်':'ခွင့်ပြုချက်'}
+                </button>
+                {u.username!==currentUser.username && (
+                  <button onClick={async ()=>{if(u.role==='admin'&&posUsers.filter(x=>x.role==='admin').length<=1){showToast('Admin အနည်းဆုံး ၁ ခုရှိရပါမည်','err');return;}await deleteDoc(doc(db,'artifacts',appId,'public','data','pos_users',u.id));}} className="text-rose-500 hover:text-rose-300 p-3 transition-colors"><Trash2 size={22}/></button>
+                )}
               </div>
             </div>
             {editingPerms===u.id && (
-              <div className="mt-4 p-4 bg-black/60 rounded-2xl border border-indigo-500/20 grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-3">
+              <div className="mt-5 p-5 bg-black/60 rounded-2xl border border-indigo-500/20 grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-4">
                 {PERMISSION_OPTIONS.map(perm=>(
-                  <label key={perm.key} className={`flex items-center gap-3 text-xs font-bold ${u.role==='admin'?'text-slate-500':'text-slate-300'} cursor-pointer`}>
-                    <input type="checkbox" checked={u.role==='admin'?true:u.permissions?.includes(perm.key)} onChange={()=>togglePermission(u,perm.key)} disabled={u.role==='admin'} className="accent-indigo-500 w-4 h-4 rounded"/>
-                    <span>{perm.label}</span>
+                  <label key={perm.key} className={`flex items-center gap-3 text-base font-bold ${u.role==='admin'?'text-slate-600':'text-slate-300'} cursor-pointer`}>
+                    <input type="checkbox" checked={u.role==='admin'?true:u.permissions?.includes(perm.key)} onChange={()=>togglePermission(u,perm.key)} disabled={u.role==='admin'} className="accent-indigo-500 w-5 h-5 rounded"/>
+                    <span className="leading-tight">{perm.label}</span>
                   </label>
                 ))}
               </div>
