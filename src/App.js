@@ -160,23 +160,23 @@ export default function App() {
     })();
   }, [fbUser, db, appId]);
 
-  const handleSetup = async (username, password, shopName) => {
-    const tenantId = `tenant_${username.trim()}_${Date.now()}`;
-    const userRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), {
-      username: username.trim(),
-      password: simpleHash(password),
-      role: 'admin',
-      permissions: [],
-      tenantId: tenantId,
-      createdAt: Date.now(),
-    });
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'pos_settings', tenantId), {
-      shopName: shopName.trim() || `${username.trim()}'s POS`,
-    });
-    setCurrentUser({ id: userRef.id, username: username.trim(), role: 'admin', tenantId, permissions: [] });
-    setSetupDone(true);
-  };
-
+ const handleSetup = async (username, password, shopName) => {
+  const tenantId = `tenant_${username.trim()}_${Date.now()}`;
+  const userRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), {
+    username: username.trim(),
+    password: simpleHash(password),
+    role: 'admin',
+    permissions: [],
+    tenantId: tenantId,
+    createdAt: Date.now(),
+  });
+  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'pos_settings', tenantId), {
+    shopName: shopName.trim() || `${username.trim()}'s POS`,
+  });
+  setCurrentUser(null); // Auto logout to show login screen
+  setSetupDone(true);
+  showToast('✅ Admin အကောင့် ဖန်တီးပြီးပါပြီ။ Login ပြန်ဝင်ပါ။', 'ok');
+};
   const currentTenant = currentUser?.tenantId;
   const posUsers = useMemo(() => allUsers.filter(u => u.tenantId === currentTenant), [allUsers, currentTenant]);
   const records = useMemo(() => allRecords.filter(r => r.tenantId === currentTenant), [allRecords, currentTenant]);
