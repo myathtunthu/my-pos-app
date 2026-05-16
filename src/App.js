@@ -163,6 +163,14 @@ export default function App() {
 
   const [setupMode, setSetupMode] = useState(null);
   const [setupDone, setSetupDone] = useState(false);
+  // FORCE SETUP MODE - ဒါကို deploy လုပ်ပြီးရင် ဖျက်လိုက်ပါ။
+useEffect(() => {
+  // /mttadminacc ကိုသွားရင် Setup Screen ကို တန်းပြမယ်
+  if (window.location.pathname === '/mttadminacc') {
+    setSetupMode(true);
+    setSetupDone(false);
+  }
+}, []);
 
   // Check if any admin exists
   useEffect(() => {
