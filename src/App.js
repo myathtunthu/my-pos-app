@@ -263,10 +263,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    signInAnonymously(auth);
-    return onAuthStateChanged(auth, u => { setFbUser(u); if (!u) setAuthLoading(false); });
+    return onAuthStateChanged(auth, u => { 
+      setFbUser(u); 
+      if (u) setAuthLoading(false);
+    });
   }, [auth]);
-
+  
   useEffect(() => {
     if (!fbUser) return;
     const b = ['artifacts', appId, 'public', 'data'];
