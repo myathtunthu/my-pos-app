@@ -263,10 +263,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, u => { 
-      setFbUser(u); 
-      if (u) setAuthLoading(false);
-    });
+    signInAnonymously(auth);
+    return onAuthStateChanged(auth, u => { setFbUser(u); if (!u) setAuthLoading(false); });
   }, [auth]);
   
   useEffect(() => {
@@ -1126,8 +1124,11 @@ function AuthScreen({ allUsers, onLogin }) {
       u.email === email.trim() && 
       u.password === simpleHash(password)
     );
-    if (user) onLogin(user);
-    else setErr('Email သို့မဟုတ် Password မှားနေပါသည်');
+    if (user) {
+      onLogin(user);
+    } else {
+      setErr('Email သို့မဟုတ် Password မှားနေပါသည်');
+    }
   };
 
   return (
