@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import {
-  getFirestore, collection, doc, onSnapshot, deleteDoc, addDoc, setDoc, writeBatch, runTransaction, getDocs
+  getFirestore, collection, doc, onSnapshot, deleteDoc, addDoc, setDoc, writeBatch, runTransaction, getDocs, query, where
 } from 'firebase/firestore';
 import {
-  getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged
+  getAuth, signInAnonymously, onAuthStateChanged, signOut
 } from 'firebase/auth';
 import {
   PlusCircle, Trash2, Search, X, ArrowUpRight, ArrowDownRight, Settings as SettingsIcon, Plus,
@@ -12,8 +12,20 @@ import {
   LayoutDashboard, Database, BarChart3, CheckCircle, PieChart,
   Receipt, Download, Upload, FileText, AlertCircle, Archive,
   ShieldAlert, MonitorPlay, Package, Users, Boxes, DollarSign,
-  Edit3, Save, AlertTriangle, LogOut, Eye, EyeOff, ShoppingCart, Tag, ShieldCheck, Cloud, Lock
+  Edit3, Save, AlertTriangle, LogOut, Eye, EyeOff, ShoppingCart, Tag, ShieldCheck, Cloud, Lock, RefreshCw
 } from 'lucide-react';
+
+// ─── Firebase Config (Move to .env for production) ───
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAlpJICmBjeJoRuvJgN2kGpAK7AQDAtN6M",
+  authDomain: "mtt-pos.firebaseapp.com",
+  databaseURL: "https://mtt-pos-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mtt-pos",
+  storageBucket: "mtt-pos.firebasestorage.app",
+  messagingSenderId: "681104952532",
+  appId: "1:681104952532:web:d89bcf31615bd6fdf33f41",
+  measurementId: "G-SX1E8GFLWL"
+};
 
 // ─── Permission Options ─────────────────────────────────────────────────────
 const PERMISSION_OPTIONS = [
@@ -85,7 +97,7 @@ const doPrint = (record, shopName) => {
   const items = record.itemsDetail || [{ name: record.item, quantity: 1, unitPrice: record.amount, itemDiscountAmt: 0 }];
   const rows = items.map(i => {
     const discStr = i.itemDiscountAmt > 0 ? `<br><small><i>(-${fmt(i.itemDiscountAmt)} Disc)</i></small>` : '';
-    return `<tr><td>${i.name}${discStr}</td><td align="right">${i.quantity}</td><td align="right">${fmt((i.unitPrice * i.quantity) - (i.itemDiscountAmt||0))}</td></tr>`;
+    return `</tr><td>${i.name}${discStr}</td><td align="right">${i.quantity}</td><td align="right">${fmt((i.unitPrice * i.quantity) - (i.itemDiscountAmt||0))}</td></tr>`;
   }).join('');
   const w = window.open('', '_blank', 'width=380,height=640');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt</title>
@@ -112,22 +124,10 @@ ${record.discount > 0 ? `<p align="right">Global Disc: -${fmt(record.discount)} 
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════════════════
 export default function App() {
-  const firebaseConfig = useMemo(() => {
-    return {
-      apiKey: "AIzaSyAlpJICmBjeJoRuvJgN2kGpAK7AQDAtN6M",
-      authDomain: "mtt-pos.firebaseapp.com",
-      databaseURL: "https://mtt-pos-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "mtt-pos",
-      storageBucket: "mtt-pos.firebasestorage.app",
-      messagingSenderId: "681104952532",
-      appId: "1:681104952532:web:d89bcf31615bd6fdf33f41",
-      measurementId: "G-SX1E8GFLWL"
-    };
-  }, []);
-  const app = initializeApp(firebaseConfig);
+  const app = useMemo(() => initializeApp(FIREBASE_CONFIG), []);
   const auth = getAuth(app);
   const db = getFirestore(app);
-  const appId = process.env.REACT_APP_APP_ID || 'cyber-pos-v17';
+  const appId = 'cyber-pos-v17';
 
   const [fbUser, setFbUser] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
@@ -145,6 +145,7 @@ export default function App() {
     setTimeout(() => setToast(null), 4500);
   }, []);
 
+  // ── Beep Sound for Barcode Scan ──
   const playBeep = useCallback(() => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -163,13 +164,20 @@ export default function App() {
   const [setupMode, setSetupMode] = useState(null);
   const [setupDone, setSetupDone] = useState(false);
 
+  // Check if any admin exists
   useEffect(() => {
     if (!fbUser) return;
-    (async () => {
-      const usersSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'));
-      const hasAdmin = usersSnap.docs.some(d => d.data().role === 'admin');
-      setSetupMode(!hasAdmin);
-    })();
+    const checkAdmin = async () => {
+      try {
+        const usersSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'));
+        const hasAdmin = usersSnap.docs.some(d => d.data().role === 'admin');
+        setSetupMode(!hasAdmin);
+      } catch (err) {
+        console.error("Error checking admin:", err);
+        setSetupMode(true);
+      }
+    };
+    checkAdmin();
   }, [fbUser, db, appId]);
 
   const handleSetup = async (username, password, shopName) => {
@@ -255,36 +263,41 @@ export default function App() {
     return currentUser.permissions?.includes(perm);
   }, [currentUser]);
 
+  // Anonymous Sign In
   useEffect(() => {
-    const handler = (e) => { if (searchRef.current && !searchRef.current.contains(e.target)) setShowProdDropdown(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  // Background Anonymous Auth
-  useEffect(() => {
-    signInAnonymously(auth).catch(() => {});
-    return onAuthStateChanged(auth, u => { setFbUser(u); if (!u) setAuthLoading(false); });
+    signInAnonymously(auth).catch(err => {
+      console.error("Anonymous sign in failed:", err);
+      setAuthLoading(false);
+    });
+    return onAuthStateChanged(auth, u => { 
+      setFbUser(u); 
+      if (!u) setAuthLoading(false);
+    });
   }, [auth]);
-
-  // Real-time Data Sync (Syntax Fixed)
+  
+  // Firestore listeners
   useEffect(() => {
     if (!fbUser) return;
     const b = ['artifacts', appId, 'public', 'data'];
-    const u1 = onSnapshot(collection(db, ...b, 'pos_users'), s => {
+    
+    const u1 = onSnapshot(collection(db, ...b, 'pos_users'), (s) => {
       setAllUsers(s.docs.map(d => ({ id: d.id, ...d.data() })));
       setAuthLoading(false);
-    });
-    const u2 = onSnapshot(collection(db, ...b, 'pos_records'), s => {
+    }, (err) => { console.error("Users listener error:", err); setAuthLoading(false); });
+    
+    const u2 = onSnapshot(collection(db, ...b, 'pos_records'), (s) => {
       setAllRecords(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
       setAppLoading(false);
-    });
-    const u3 = onSnapshot(collection(db, ...b, 'pos_products'), s => {
+    }, (err) => { console.error("Records listener error:", err); setAppLoading(false); });
+    
+    const u3 = onSnapshot(collection(db, ...b, 'pos_products'), (s) => {
       setAllProducts(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-    });
-    const u4 = onSnapshot(collection(db, ...b, 'pos_settings'), s => {
+    }, (err) => { console.error("Products listener error:", err); });
+    
+    const u4 = onSnapshot(collection(db, ...b, 'pos_settings'), (s) => {
       setAllSettings(s.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    }, (err) => { console.error("Settings listener error:", err); });
+    
     return () => { u1(); u2(); u3(); u4(); };
   }, [fbUser, db, appId]);
 
@@ -307,17 +320,26 @@ export default function App() {
     } else setUnitPrice('');
   }, [selProdId, products, entryTab]);
 
+  // Scanner effect
   useEffect(() => {
     if (!showScanner) return;
-    if (!window.Html5Qrcode) { showToast('Scanner library မရှိပါ', 'err'); setShowScanner(false); return; }
+    if (!window.Html5Qrcode) { 
+      showToast('Scanner library မရှိပါ', 'err'); 
+      setShowScanner(false); 
+      return; 
+    }
     let html5QrCode;
     (async () => {
       try {
-        if (scannerRef.current) { await scannerRef.current.stop().catch(() => {}); scannerRef.current = null; }
+        if (scannerRef.current) { 
+          await scannerRef.current.stop().catch(() => {}); 
+          scannerRef.current = null; 
+        }
         html5QrCode = new window.Html5Qrcode("barcode-reader");
         scannerRef.current = html5QrCode;
         await html5QrCode.start(
-          { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
+          { facingMode: "environment" }, 
+          { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
             const prod = products.find(p => p.barcode === decodedText.trim() || p.id === decodedText.trim());
             if (prod) {
@@ -333,16 +355,32 @@ export default function App() {
               showToast('Barcode မတွေ့ပါ', 'err');
             }
             (async () => {
-              if (isStopping.current) return; isStopping.current = true;
-              if (scannerRef.current) { await scannerRef.current.stop().catch(() => {}); scannerRef.current = null; }
-              isStopping.current = false; setShowScanner(false);
+              if (isStopping.current) return; 
+              isStopping.current = true;
+              if (scannerRef.current) { 
+                await scannerRef.current.stop().catch(() => {}); 
+                scannerRef.current = null; 
+              }
+              isStopping.current = false; 
+              setShowScanner(false);
             })();
-          }, () => {}
+          }, 
+          () => {}
         );
-      } catch { showToast('Camera မရပါ', 'err'); setShowScanner(false); }
+      } catch (err) { 
+        console.error("Scanner error:", err);
+        showToast('Camera မရပါ', 'err'); 
+        setShowScanner(false); 
+      }
     })();
-    return () => { isStopping.current = true; if (scannerRef.current) { scannerRef.current.stop().catch(() => {}); scannerRef.current = null; } };
-  }, [showScanner]);
+    return () => { 
+      isStopping.current = true; 
+      if (scannerRef.current) { 
+        scannerRef.current.stop().catch(() => {}); 
+        scannerRef.current = null; 
+      } 
+    };
+  }, [showScanner, products, entryTab, playBeep, showToast]);
 
   const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);
   const lowStock = useMemo(() => products.filter(p => (Number(p.stock) || 0) <= (Number(p.minStock) || 5)), [products]);
@@ -489,7 +527,11 @@ export default function App() {
       clearCart(); setAppLoading(false);
       showToast('အရောင်းစာရင်း သိမ်းပြီးပါပြီ ✓');
       setReceiptModal({ show: true, record: data });
-    } catch { setAppLoading(false); showToast('Error', 'err'); }
+    } catch (err) { 
+      console.error("Submit sale error:", err);
+      setAppLoading(false); 
+      showToast('Error: ' + err.message, 'err'); 
+    }
   };
 
   const submitPurchase = async () => {
@@ -514,7 +556,11 @@ export default function App() {
       await batch.commit();
       clearCart(); setAppLoading(false);
       showToast('အဝယ်စာရင်း + Stock သိမ်းပြီးပါပြီ ✓');
-    } catch { setAppLoading(false); showToast('Error', 'err'); }
+    } catch (err) { 
+      console.error("Submit purchase error:", err);
+      setAppLoading(false); 
+      showToast('Error: ' + err.message, 'err'); 
+    }
   };
 
   const submitExpense = async () => {
@@ -664,6 +710,7 @@ export default function App() {
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
     .map(r => { histBal += r.type === 'Sale' ? (Number(r.amount) || 0) : -(Number(r.amount) || 0); return { ...r, runningBal: histBal }; }).reverse();
 
+  // Loading screen
   if (setupMode === null || authLoading || appLoading) return (
     <div className="min-h-[100dvh] bg-[#080c14] flex flex-col items-center justify-center">
       <Cpu className="text-cyan-500 animate-pulse mb-5" size={64} />
@@ -672,15 +719,16 @@ export default function App() {
   );
 
   const isSecretSetup = window.location.pathname === '/mttadminacc';
-  const masterAdmin = process.env.REACT_APP_MASTER_ADMIN || 'admin';
+  const masterAdmin = 'admin'; // Simple master admin check
 
-  const isMasterAdmin = currentUser && 
-    (currentUser.tenantId === 'tenant_admin' || currentUser.username === masterAdmin);
+  const isMasterAdmin = currentUser && currentUser.username === masterAdmin;
 
+  // Protected Setup: Only Master Admin can create new admins
   if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmin) {
-    return <SetupScreen onSetup={handleSetup} />;
+    return <SetupScreen onSetup={handleSetup} showToast={showToast} />;
   }
 
+  // If someone else tries to access secret setup, show error
   if (isSecretSetup && currentUser && !isMasterAdmin) {
     return (
       <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
@@ -694,9 +742,11 @@ export default function App() {
     );
   }
 
-  if (setupMode && fbUser && !setupDone && !isSecretSetup) return <SetupScreen onSetup={handleSetup} />;
+  // First-time setup when no admin exists
+  if (setupMode && fbUser && !setupDone && !isSecretSetup) return <SetupScreen onSetup={handleSetup} showToast={showToast} />;
   
-  if (!currentUser) return <AuthScreen allUsers={allUsers} onLogin={setCurrentUser} />;
+  // If not logged in, show login
+  if (!currentUser) return <AuthScreen allUsers={allUsers} onLogin={setCurrentUser} showToast={showToast} />;
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#080c14] pb-[110px] text-slate-100 antialiased font-sans overflow-x-hidden">
@@ -1067,6 +1117,44 @@ export default function App() {
       {historyModal.show && <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/85"><div className="bg-[#0d1120] w-full max-w-md rounded-3xl p-8 border-2 border-cyan-500/20 max-h-[85vh] flex flex-col"><div className="flex justify-between items-center mb-6"><h3 className="font-black text-white text-2xl flex items-center gap-3">📜 {historyModal.name}</h3><button onClick={()=>setHistoryModal({show:false,name:''})} className="text-slate-400 hover:text-rose-400"><X size={30}/></button></div><div className="overflow-y-auto space-y-4 flex-1 pr-2">{histRecords.map(r=><div key={r.id} className="bg-black/50 p-5 rounded-2xl border-2 border-cyan-500/10"><div className="flex justify-between items-start mb-3"><span className={`text-sm font-black px-3 py-1.5 rounded uppercase ${r.type==='Sale'?'bg-rose-500/20 text-rose-400':'bg-emerald-500/20 text-emerald-400'}`}>{r.type==='Sale'?'ကြွေးယူ':'ကြွေးဆပ်'}</span><span className="text-sm text-slate-500">{(r.date||'').split(',')[0]}</span></div><div className="flex justify-between items-end mb-3"><p className="text-base text-slate-400 font-bold truncate max-w-[180px]">{r.item}</p><p className={`text-2xl font-black ${r.type==='Sale'?'text-rose-400':'text-emerald-400'}`}>{fmt(r.amount)}</p></div><div className="border-t-2 border-white/5 pt-3 text-right"><p className="text-sm text-slate-500">လက်ကျန်: <span className="font-black text-slate-300">{fmt(r.runningBal)} Ks</span></p></div></div>)}</div></div></div>}
 
       {showScanner && <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm"><div className="bg-[#0d1120] p-8 rounded-3xl border-2 border-cyan-500/20 w-full max-w-lg mx-4"><div className="flex justify-between items-center mb-6"><h3 className="font-black text-white text-2xl">Barcode / QR ဖတ်မည်</h3><button onClick={()=>setShowScanner(false)} className="text-slate-400 hover:text-rose-400 p-2"><X size={32}/></button></div><div id="barcode-reader" className="w-full overflow-hidden rounded-xl" style={{minHeight:'260px'}}></div></div></div>}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#0d1120] w-full max-w-md rounded-3xl p-8 border-2 border-cyan-500/20 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-black text-white text-2xl flex items-center gap-3"><SettingsIcon size={28}/> ဆက်တင်များ</h3>
+              <button onClick={()=>setShowSettings(false)} className="text-slate-400 hover:text-rose-400"><X size={30}/></button>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <label className="text-sm font-black text-slate-500 uppercase block mb-2">ဆိုင်အမည်</label>
+                <input value={shopName} onChange={e=>setShopName(e.target.value)} className="w-full bg-black/50 border-2 border-cyan-500/20 rounded-xl px-5 py-5 text-xl font-bold text-cyan-400 outline-none" />
+              </div>
+              <div>
+                <label className="text-sm font-black text-slate-500 uppercase block mb-2">Telegram Bot Token</label>
+                <input value={tgToken} onChange={e=>setTgToken(e.target.value)} placeholder="Bot Token" className="w-full bg-black/50 border-2 border-cyan-500/20 rounded-xl px-5 py-5 text-xl font-bold text-slate-200 outline-none placeholder-slate-600" />
+              </div>
+              <div>
+                <label className="text-sm font-black text-slate-500 uppercase block mb-2">Telegram Chat ID</label>
+                <input value={tgChatId} onChange={e=>setTgChatId(e.target.value)} placeholder="Chat ID" className="w-full bg-black/50 border-2 border-cyan-500/20 rounded-xl px-5 py-5 text-xl font-bold text-slate-200 outline-none placeholder-slate-600" />
+              </div>
+              <div className="flex gap-5 pt-3">
+                <button onClick={saveSettings} className="flex-1 py-5 bg-cyan-600 text-white rounded-xl font-black text-xl hover:bg-cyan-500 transition-all">သိမ်းမည်</button>
+                <button onClick={()=>setShowSettings(false)} className="flex-1 py-5 bg-slate-800 text-slate-400 rounded-xl font-black text-xl hover:bg-slate-700 transition-all">ပိတ်မည်</button>
+              </div>
+              <div className="pt-4 border-t border-white/10">
+                <button onClick={exportAllCSV} className="w-full mb-3 py-4 bg-blue-600/20 border-2 border-blue-500/30 text-blue-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-blue-600/30 transition-all"><Download size={22}/> CSV Export</button>
+                <button onClick={backupToTelegram} className="w-full py-4 bg-emerald-600/20 border-2 border-emerald-500/30 text-emerald-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-emerald-600/30 transition-all"><Cloud size={22}/> Telegram Backup</button>
+                <label className="w-full mt-3 py-4 bg-amber-600/20 border-2 border-amber-500/30 text-amber-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 cursor-pointer hover:bg-amber-600/30 transition-all">
+                  <Upload size={22}/> Import CSV
+                  <input ref={fileRef} type="file" accept=".csv" onChange={handleImportAll} className="hidden" multiple />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1074,17 +1162,20 @@ export default function App() {
 // ════════════════════════════════════════════════════════════════
 // SETUP SCREEN (Protected)
 // ════════════════════════════════════════════════════════════════
-function SetupScreen({ onSetup }) {
+function SetupScreen({ onSetup, showToast }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [shopName, setShopName] = useState('');
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
+  
   const handleSubmit = e => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) { setErr('အားလုံးဖြည့်ပါ'); return; }
+    if (password.trim().length < 4) { setErr('Password အနည်းဆုံး ၄ လုံး ဖြစ်ရပါမည်'); return; }
     onSetup(username, password, shopName);
   };
+  
   return (
     <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
       <div className="bg-[#0d1120] p-10 sm:p-12 rounded-3xl border-2 border-cyan-500/25 shadow-[0_0_50px_rgba(6,182,212,0.2)] w-full max-w-lg">
@@ -1098,7 +1189,10 @@ function SetupScreen({ onSetup }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           <input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="ဆိုင်အမည်" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
           <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Email (admin@gmail.com)" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-          <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show?<EyeOff size={30}/>:<Eye size={30}/>}</button></div>
+          <div className="relative">
+            <input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password (min 4 chars)" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/>
+            <button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show?<EyeOff size={30}/>:<Eye size={30}/>}</button>
+          </div>
           <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20">Admin အကောင့်ဖွင့်မည်</button>
         </form>
       </div>
@@ -1107,34 +1201,30 @@ function SetupScreen({ onSetup }) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// AUTH SCREEN (Email + Firebase Auth)
+// AUTH SCREEN (Email Only Login)
 // ════════════════════════════════════════════════════════════════
-function AuthScreen({ allUsers, onLogin }) {
+function AuthScreen({ allUsers, onLogin, showToast }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async e => {
+  const handleLogin = e => {
     e.preventDefault();
-    setLoading(true);
-    setErr('');
-    try {
-      const auth = getAuth();
-      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const fbUser = userCredential.user;
-      const posUser = allUsers.find(u => u.uid === fbUser.uid || u.email === email.trim());
-      if (posUser) {
-        onLogin(posUser);
-      } else {
-        await auth.signOut();
-        setErr('ဤ Email ဖြင့် POS အကောင့် မရှိပါ။ Admin ကို ဆက်သွယ်ပါ။');
-      }
-    } catch (e) {
+    if (!email.trim() || !password.trim()) {
+      setErr('Email နှင့် Password ဖြည့်ပါ');
+      return;
+    }
+    const hashedPassword = simpleHash(password);
+    const user = allUsers.find(u => 
+      u.email === email.trim() && 
+      u.password === hashedPassword
+    );
+    if (user) {
+      onLogin(user);
+    } else {
       setErr('Email သို့မဟုတ် Password မှားနေပါသည်');
     }
-    setLoading(false);
   };
 
   return (
@@ -1144,8 +1234,11 @@ function AuthScreen({ allUsers, onLogin }) {
         {err && <p className="text-lg font-bold text-rose-400 bg-rose-500/10 border-2 border-rose-500/20 p-5 rounded-xl mb-8 text-center">{err}</p>}
         <form onSubmit={handleLogin} className="space-y-6">
           <input required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-          <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show?<EyeOff size={30}/>:<Eye size={30}/>}</button></div>
-          <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20">{loading ? 'ဝင်နေသည်...' : 'Login ဝင်မည်'}</button>
+          <div className="relative">
+            <input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/>
+            <button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show?<EyeOff size={30}/>:<Eye size={30}/>}</button>
+          </div>
+          <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20">Login ဝင်မည်</button>
         </form>
       </div>
     </div>
@@ -1185,7 +1278,7 @@ function ProductsTab({ products, db, appId, currentTenant, showToast, playBeep }
       } catch { showToast('Camera မရပါ', 'err'); setShowProductScanner(false); }
     })();
     return () => { isStopping.current = true; if (scannerRef.current) { scannerRef.current.stop().catch(() => {}); scannerRef.current = null; } };
-  }, [showProductScanner]);
+  }, [showProductScanner, playBeep, showToast]);
 
   const handleSave = async e => {
     e.preventDefault();
@@ -1200,7 +1293,10 @@ function ProductsTab({ products, db, appId, currentTenant, showToast, playBeep }
         showToast('ထည့်ပြီး ✓'); setAdding(false);
       }
       resetForm();
-    } catch { showToast('Error', 'err'); }
+    } catch (err) { 
+      console.error("Save product error:", err);
+      showToast('Error: ' + err.message, 'err'); 
+    }
   };
 
   const startEdit = p => { setEditing(p); setForm({ name: p.name || '', category: p.category || '', barcode: p.barcode || '', costPrice: String(p.costPrice || ''), price: String(p.price || ''), minStock: String(p.minStock || '5'), unit: p.unit || 'ခု' }); setAdding(false); };
@@ -1261,7 +1357,7 @@ function ProductsTab({ products, db, appId, currentTenant, showToast, playBeep }
               </div>
               <div className="flex gap-4 ml-5 opacity-100 sm:opacity-60 sm:group-hover:opacity-100 transition-opacity">
                 <button onClick={()=>startEdit(p)} className="p-4 bg-indigo-950/50 border-2 border-indigo-500/20 text-indigo-400 rounded-xl hover:bg-indigo-900/50 transition-all"><Edit3 size={24}/></button>
-                <button onClick={async ()=>{await deleteDoc(doc(db,'artifacts',appId,'public','data','pos_products',p.id));}} className="p-4 bg-rose-950/50 border-2 border-rose-500/20 text-rose-400 rounded-xl hover:bg-rose-900/50 transition-all"><Trash2 size={24}/></button>
+                <button onClick={async ()=>{if(window.confirm('ဖျက်မည်?'))await deleteDoc(doc(db,'artifacts',appId,'public','data','pos_products',p.id));}} className="p-4 bg-rose-950/50 border-2 border-rose-500/20 text-rose-400 rounded-xl hover:bg-rose-900/50 transition-all"><Trash2 size={24}/></button>
               </div>
             </div>
           </div>
@@ -1313,7 +1409,7 @@ function InventoryTab({ products, db, appId, hasPermission, sendInventoryReport 
 // ════════════════════════════════════════════════════════════════
 function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }) {
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ email: '', password: '', role: 'staff' });
+  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'staff' });
   const [show, setShow] = useState(false);
   const [editingPerms, setEditingPerms] = useState(null);
   const [adminPassword, setAdminPassword] = useState('');
@@ -1328,6 +1424,7 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
       showToast('သင့် Admin Password ထည့်ပါ', 'err');
       return;
     }
+    // Verify admin password
     if (currentUser.password !== simpleHash(adminPassword)) {
       showToast('Admin Password မှားနေပါသည်', 'err');
       return;
@@ -1341,14 +1438,8 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
       return;
     }
     try {
-      // Create Firebase Auth user
-      const auth = getAuth();
-      const { createUserWithEmailAndPassword } = await import('firebase/auth');
-      const userCredential = await createUserWithEmailAndPassword(auth, form.email.trim(), form.password);
-      // Save to Firestore
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), {
         tenantId: currentTenant,
-        uid: userCredential.user.uid,
         username: form.email.trim().split('@')[0],
         email: form.email.trim(),
         password: simpleHash(form.password),
@@ -1356,16 +1447,13 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
         permissions: form.role === 'staff' ? DEFAULT_STAFF_PERMS : [],
         createdAt: Date.now(),
       });
-      setForm({ email: '', password: '', role: 'staff' });
+      setForm({ username: '', email: '', password: '', role: 'staff' });
       setAdminPassword('');
       setAdding(false);
       showToast('✅ Staff အကောင့် ဖန်တီးပြီးပါပြီ', 'ok');
     } catch (err) {
-      if (err.code === 'auth/email-already-in-use') {
-        showToast('Email ရှိပြီးသားပါ', 'err');
-      } else {
-        showToast('Error: ' + err.message, 'err');
-      }
+      console.error("Add user error:", err);
+      showToast('Error: ' + err.message, 'err');
     }
   };
 
@@ -1383,8 +1471,13 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
       {adding && (
         <form onSubmit={handleAdd} className="bg-black/40 p-8 rounded-2xl border-2 border-indigo-500/15 mb-8 space-y-6">
           <input required value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="Email (staff@gmail.com)" className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all placeholder-slate-600"/>
-          <div className="relative"><input required type={show?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Staff Password" className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500"><EyeOff size={26}/></button></div>
-          <div className="relative"><input required type="password" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} placeholder="သင့် Admin Password" className="w-full px-5 py-5 bg-amber-950/20 border-2 border-amber-500/20 rounded-xl text-xl font-bold text-amber-300 outline-none focus:border-amber-400 transition-all pr-16 placeholder-amber-700"/></div>
+          <div className="relative">
+            <input required type={show?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Staff Password (min 4 chars)" className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all pr-16 placeholder-slate-600"/>
+            <button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500"><EyeOff size={26}/></button>
+          </div>
+          <div className="relative">
+            <input required type="password" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} placeholder="သင့် Admin Password" className="w-full px-5 py-5 bg-amber-950/20 border-2 border-amber-500/20 rounded-xl text-xl font-bold text-amber-300 outline-none focus:border-amber-400 transition-all pr-16 placeholder-amber-700"/>
+          </div>
           <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})} className="w-full px-5 py-5 bg-black border-2 border-indigo-500/15 rounded-xl text-xl font-bold text-slate-200 outline-none focus:border-indigo-400 transition-all">
             <option value="staff">Staff</option>
             <option value="admin">Admin</option>
@@ -1411,7 +1504,7 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
                 <button onClick={()=>setEditingPerms(editingPerms===u.id?null:u.id)} className="text-base text-indigo-400 bg-indigo-500/10 px-5 py-3 rounded-xl border-2 border-indigo-500/20 flex items-center gap-3 active:scale-95 hover:bg-indigo-500/20 transition-all">
                   <ShieldCheck size={22}/> {editingPerms===u.id?'ပိတ်မည်':'ခွင့်ပြုချက်'}
                 </button>
-                {u.username!==currentUser.username && (
+                {u.id !== currentUser.id && (
                   <button onClick={async ()=>{if(u.role==='admin'&&posUsers.filter(x=>x.role==='admin').length<=1){showToast('Admin အနည်းဆုံး ၁ ခုရှိရပါမည်','err');return;}await deleteDoc(doc(db,'artifacts',appId,'public','data','pos_users',u.id));}} className="text-rose-500 hover:text-rose-300 p-4 transition-colors"><Trash2 size={26}/></button>
                 )}
               </div>
