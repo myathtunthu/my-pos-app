@@ -1230,7 +1230,7 @@ function AuthScreen({ allUsers, onLogin, showToast }) {
   return (
     <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
       <div className="bg-[#0d1120] p-10 sm:p-12 rounded-3xl border-2 border-cyan-500/25 shadow-[0_0_50px_rgba(6,182,212,0.2)] w-full max-w-lg">
-        <div className="text-center mb-10"><MonitorPlay size={64} className="mx-auto text-cyan-500 mb-6"/><h2 className="text-4xl font-black text-white uppercase">Cyber POS</h2><p className="text-lg text-cyan-400 font-bold mt-3">PRO VERSION 18</p></div>
+        <div className="text-center mb-10"><MonitorPlay size={64} className="mx-auto text-cyan-500 mb-6"/><h2 className="text-4xl font-black text-white uppercase">Cyber POS</h2><p className="text-lg text-cyan-400 font-bold mt-3">PRO VERSION 1</p></div>
         {err && <p className="text-lg font-bold text-rose-400 bg-rose-500/10 border-2 border-rose-500/20 p-5 rounded-xl mb-8 text-center">{err}</p>}
         <form onSubmit={handleLogin} className="space-y-6">
           <input required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
