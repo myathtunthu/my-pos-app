@@ -113,9 +113,6 @@ ${record.discount > 0 ? `<p align="right">Global Disc: -${fmt(record.discount)} 
 // ═══════════════════════════════════════════════════════════════════════════
 export default function App() {
   const firebaseConfig = useMemo(() => {
-    if (process.env.REACT_APP_FIREBASE_CONFIG) {
-      return JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG);
-    }
     return {
       apiKey: "AIzaSyAlpJICmBjeJoRuvJgN2kGpAK7AQDAtN6M",
       authDomain: "mtt-pos.firebaseapp.com",
