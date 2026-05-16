@@ -4,7 +4,7 @@ import {
   getFirestore, collection, doc, onSnapshot, deleteDoc, addDoc, setDoc, writeBatch, runTransaction, getDocs
 } from 'firebase/firestore';
 import {
-  getAuth, signInAnonymously, onAuthStateChanged
+  getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged
 } from 'firebase/auth';
 import {
   PlusCircle, Trash2, Search, X, ArrowUpRight, ArrowDownRight, Settings as SettingsIcon, Plus,
@@ -145,7 +145,6 @@ export default function App() {
     setTimeout(() => setToast(null), 4500);
   }, []);
 
-  // ── Beep Sound for Barcode Scan ──
   const playBeep = useCallback(() => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -262,11 +261,13 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Background Anonymous Auth
   useEffect(() => {
-    signInAnonymously(auth);
+    signInAnonymously(auth).catch(() => {});
     return onAuthStateChanged(auth, u => { setFbUser(u); if (!u) setAuthLoading(false); });
   }, [auth]);
-  
+
+  // Real-time Data Sync (Syntax Fixed)
   useEffect(() => {
     if (!fbUser) return;
     const b = ['artifacts', appId, 'public', 'data'];
@@ -676,12 +677,10 @@ export default function App() {
   const isMasterAdmin = currentUser && 
     (currentUser.tenantId === 'tenant_admin' || currentUser.username === masterAdmin);
 
-  // Protected Setup: Only Master Admin can create new admins
   if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmin) {
     return <SetupScreen onSetup={handleSetup} />;
   }
 
-  // If someone else tries to access secret setup, show error
   if (isSecretSetup && currentUser && !isMasterAdmin) {
     return (
       <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
@@ -695,10 +694,8 @@ export default function App() {
     );
   }
 
-  // First-time setup when no admin exists
   if (setupMode && fbUser && !setupDone && !isSecretSetup) return <SetupScreen onSetup={handleSetup} />;
   
-  // If not logged in, show login
   if (!currentUser) return <AuthScreen allUsers={allUsers} onLogin={setCurrentUser} />;
 
   return (
@@ -1110,25 +1107,34 @@ function SetupScreen({ onSetup }) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// AUTH SCREEN (Email Only Login)
+// AUTH SCREEN (Email + Firebase Auth)
 // ════════════════════════════════════════════════════════════════
 function AuthScreen({ allUsers, onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = e => {
+  const handleLogin = async e => {
     e.preventDefault();
-    const user = allUsers.find(u => 
-      u.email === email.trim() && 
-      u.password === simpleHash(password)
-    );
-    if (user) {
-      onLogin(user);
-    } else {
+    setLoading(true);
+    setErr('');
+    try {
+      const auth = getAuth();
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const fbUser = userCredential.user;
+      const posUser = allUsers.find(u => u.uid === fbUser.uid || u.email === email.trim());
+      if (posUser) {
+        onLogin(posUser);
+      } else {
+        await auth.signOut();
+        setErr('ဤ Email ဖြင့် POS အကောင့် မရှိပါ။ Admin ကို ဆက်သွယ်ပါ။');
+      }
+    } catch (e) {
       setErr('Email သို့မဟုတ် Password မှားနေပါသည်');
     }
+    setLoading(false);
   };
 
   return (
@@ -1139,7 +1145,7 @@ function AuthScreen({ allUsers, onLogin }) {
         <form onSubmit={handleLogin} className="space-y-6">
           <input required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
           <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show?<EyeOff size={30}/>:<Eye size={30}/>}</button></div>
-          <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20">Login ဝင်မည်</button>
+          <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20">{loading ? 'ဝင်နေသည်...' : 'Login ဝင်မည်'}</button>
         </form>
       </div>
     </div>
@@ -1307,7 +1313,7 @@ function InventoryTab({ products, db, appId, hasPermission, sendInventoryReport 
 // ════════════════════════════════════════════════════════════════
 function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }) {
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'staff' });
+  const [form, setForm] = useState({ email: '', password: '', role: 'staff' });
   const [show, setShow] = useState(false);
   const [editingPerms, setEditingPerms] = useState(null);
   const [adminPassword, setAdminPassword] = useState('');
@@ -1322,7 +1328,6 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
       showToast('သင့် Admin Password ထည့်ပါ', 'err');
       return;
     }
-    // Verify admin password
     if (currentUser.password !== simpleHash(adminPassword)) {
       showToast('Admin Password မှားနေပါသည်', 'err');
       return;
@@ -1336,8 +1341,14 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
       return;
     }
     try {
+      // Create Firebase Auth user
+      const auth = getAuth();
+      const { createUserWithEmailAndPassword } = await import('firebase/auth');
+      const userCredential = await createUserWithEmailAndPassword(auth, form.email.trim(), form.password);
+      // Save to Firestore
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pos_users'), {
         tenantId: currentTenant,
+        uid: userCredential.user.uid,
         username: form.email.trim().split('@')[0],
         email: form.email.trim(),
         password: simpleHash(form.password),
@@ -1345,12 +1356,16 @@ function UsersTab({ posUsers, db, appId, currentTenant, showToast, currentUser }
         permissions: form.role === 'staff' ? DEFAULT_STAFF_PERMS : [],
         createdAt: Date.now(),
       });
-      setForm({ username: '', email: '', password: '', role: 'staff' });
+      setForm({ email: '', password: '', role: 'staff' });
       setAdminPassword('');
       setAdding(false);
       showToast('✅ Staff အကောင့် ဖန်တီးပြီးပါပြီ', 'ok');
-    } catch {
-      showToast('Error', 'err');
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        showToast('Email ရှိပြီးသားပါ', 'err');
+      } else {
+        showToast('Error: ' + err.message, 'err');
+      }
     }
   };
 
