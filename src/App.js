@@ -707,7 +707,7 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {hasPermission('settings') && <button onClick={()=>setShowSettings(true)} className="p-4 text-cyan-400 hover:text-cyan-200 transition-colors rounded-xl hover:bg-white/5"><SettingsIcon size={28}/></button>}
+          <button onClick={()=>setShowSettings(true)} className="p-4 text-cyan-400 hover:text-cyan-200 transition-colors rounded-xl hover:bg-white/5"><SettingsIcon size={28}/></button>}
           <button onClick={()=>setCurrentUser(null)} className="p-4 text-rose-400 hover:text-rose-200 transition-colors rounded-xl hover:bg-white/5"><LogOut size={28}/></button>
         </div>
       </nav>
