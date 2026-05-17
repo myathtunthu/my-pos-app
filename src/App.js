@@ -175,6 +175,7 @@ export default function App() {
     });
     setCurrentUser({ id: userRef.id, username: username.trim(), role: 'admin', tenantId, permissions: [] });
     setSetupDone(true);
+    showToast('✅ Admin အကောင့် ဖန်တီးပြီးပါပြီ', 'ok');
   };
 
   const currentTenant = currentUser?.tenantId;
@@ -1065,7 +1066,7 @@ function SetupScreen({ onSetup }) {
         {err && <p className="text-lg font-bold text-rose-400 bg-rose-500/10 border-2 border-rose-500/20 p-5 rounded-xl mb-8 text-center">{err}</p>}
         <form onSubmit={handleSubmit} className="space-y-6">
           <input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="ဆိုင်အမည်" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
-          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Admin Username" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Admin Email" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
           <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show?<EyeOff size={30}/>:<Eye size={30}/>}</button></div>
           <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20">Admin အကောင့်ဖွင့်မည်</button>
         </form>
@@ -1086,7 +1087,7 @@ function AuthScreen({ allUsers, onLogin }) {
     e.preventDefault();
     const user = allUsers.find(u => u.username === username.trim() && u.password === simpleHash(password));
     if (user) onLogin(user);
-    else setErr('Username သို့မဟုတ် Password မှားနေပါသည်');
+    else setErr('Email သို့မဟုတ် Password မှားနေပါသည်');
   };
   return (
     <div className="min-h-[100dvh] bg-[#080c14] flex items-center justify-center p-4">
@@ -1094,7 +1095,7 @@ function AuthScreen({ allUsers, onLogin }) {
         <div className="text-center mb-10"><MonitorPlay size={64} className="mx-auto text-cyan-500 mb-6"/><h2 className="text-4xl font-black text-white uppercase">Cyber POS</h2><p className="text-lg text-cyan-400 font-bold mt-3">PRO VERSION 18</p></div>
         {err && <p className="text-lg font-bold text-rose-400 bg-rose-500/10 border-2 border-rose-500/20 p-5 rounded-xl mb-8 text-center">{err}</p>}
         <form onSubmit={handleLogin} className="space-y-6">
-          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Username" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
+          <input required value={username} onChange={e=>setUsername(e.target.value)} placeholder="Email" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all placeholder-slate-600"/>
           <div className="relative"><input required type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-6 py-6 bg-black/50 border-2 border-cyan-500/20 rounded-xl text-slate-200 font-bold text-2xl outline-none focus:border-cyan-400 transition-all pr-16 placeholder-slate-600"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300">{show?<EyeOff size={30}/>:<Eye size={30}/>}</button></div>
           <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black py-6 rounded-xl text-2xl active:scale-95 transition-all shadow-xl shadow-cyan-500/20">Login ဝင်မည်</button>
         </form>
