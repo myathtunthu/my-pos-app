@@ -652,6 +652,7 @@ export default function App() {
   const saveSettings = async () => {
     await setDoc(doc(db, 'pos_settings', currentTenant), { shopName, tgToken, tgChatId }, { merge: true });
     showToast('ဆက်တင်သိမ်းပြီး ✓');
+    setShowSettings(false);
   };
 
   let histBal = 0;
@@ -668,7 +669,6 @@ export default function App() {
 
   const isSecretSetup = window.location.pathname === '/mttadminacc';
 
-  // Admin Dashboard (Master Admin Only)
   if (isSecretSetup && currentUser && currentUser.role === 'admin' && currentUser.username === 'Myat7291') {
     return <AdminDashboard allUsers={allUsers} db={db} showToast={showToast} onSetup={handleSetup} />;
   }
@@ -711,6 +711,42 @@ export default function App() {
           <button onClick={()=>setCurrentUser(null)} className="p-4 text-rose-400 hover:text-rose-200 transition-colors rounded-xl hover:bg-white/5"><LogOut size={28}/></button>
         </div>
       </nav>
+
+      {/* ═══ SETTINGS MODAL (ဒီအပိုင်းကို ထည့်သွင်းထားပါတယ်) ═══ */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[350] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#0d1120] w-full max-w-lg rounded-3xl p-8 border-2 border-cyan-500/25 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="font-black text-white text-2xl flex items-center gap-3"><SettingsIcon size={28} className="text-cyan-400"/> Settings</h3>
+              <button onClick={()=>setShowSettings(false)} className="text-slate-400 hover:text-rose-400 p-2"><X size={30}/></button>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <label className="text-sm font-black text-slate-500 uppercase tracking-widest block mb-2">ဆိုင်အမည်</label>
+                <input value={shopName} onChange={e=>setShopName(e.target.value)} className="w-full bg-black/50 border-2 border-cyan-500/20 rounded-xl px-5 py-4 text-xl font-bold text-slate-200 outline-none focus:border-cyan-400 transition-all"/>
+              </div>
+              <div className="pt-2 border-t-2 border-white/5">
+                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mb-4">Telegram Config</p>
+                <div className="space-y-4">
+                  <input value={tgToken} onChange={e=>setTgToken(e.target.value)} placeholder="Bot Token" className="w-full bg-black/50 border-2 border-blue-500/20 rounded-xl px-5 py-4 text-lg font-bold text-slate-200 outline-none focus:border-blue-400 placeholder-slate-600 transition-all"/>
+                  <input value={tgChatId} onChange={e=>setTgChatId(e.target.value)} placeholder="Chat ID" className="w-full bg-black/50 border-2 border-blue-500/20 rounded-xl px-5 py-4 text-lg font-bold text-slate-200 outline-none focus:border-blue-400 placeholder-slate-600 transition-all"/>
+                </div>
+              </div>
+              <div className="space-y-4 pt-4 border-t-2 border-white/5">
+                <button onClick={backupToTelegram} className="w-full py-4 bg-blue-600/20 border-2 border-blue-500/30 text-blue-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-blue-600/30 transition-all active:scale-95"><Cloud size={22}/> Backup to Telegram</button>
+                <button onClick={exportAllCSV} className="w-full py-4 bg-emerald-600/20 border-2 border-emerald-500/30 text-emerald-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-emerald-600/30 transition-all active:scale-95"><Download size={22}/> Export All CSV</button>
+                <label className="w-full py-4 bg-amber-600/20 border-2 border-amber-500/30 text-amber-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-amber-600/30 transition-all active:scale-95 cursor-pointer">
+                  <Upload size={22}/> Import Records CSV
+                  <input type="file" accept=".csv" multiple ref={fileRef} onChange={handleImportAll} className="hidden"/>
+                </label>
+              </div>
+              <button onClick={saveSettings} className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black rounded-xl text-xl flex items-center justify-center gap-3 mt-4 active:scale-95 transition-all shadow-xl shadow-cyan-500/20">
+                <Save size={24}/> ဆက်တင်သိမ်းမည်
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 w-full max-w-3xl mx-auto px-5 sm:px-8 pt-8 space-y-8">
         {/* ═══ ENTRY ═══ */}
