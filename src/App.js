@@ -675,13 +675,6 @@ export default function App() {
   );
 
   // ── Secret Setup Protection ──
-  const isSecretSetup = window.location.pathname === '/mttadminacc';
-  const isMasterAdmin = currentUser && currentUser.username === 'Myat7291';
-
-  if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmin) {
-    return <SetupScreen onSetup={handleSetup} />;
-  }
-  // ── Secret Setup Protection ──
 const isSecretSetup = window.location.pathname === '/mttadminacc';
 const isMasterAdmin = currentUser && (currentUser.username === 'Myat7291' || currentUser.tenantId === 'tenant_admin');
 
