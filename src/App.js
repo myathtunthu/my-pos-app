@@ -676,15 +676,13 @@ export default function App() {
 
   // ── Secret Setup Protection ──
 const isSecretSetup = window.location.pathname === '/mttadminacc';
-const isMasterAdmin = currentUser && (currentUser.username === 'Myat7291' || currentUser.tenantId === 'tenant_admin');
-
+const isMasterAdmin = currentUser && currentUser.username === 'Myat7291';
 if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmin) {
   return <SetupScreen onSetup={handleSetup} />;
 }
 
 if (setupMode && fbUser && !setupDone && !isSecretSetup) return <SetupScreen onSetup={handleSetup} />;
 if (!currentUser) return <AuthScreen allUsers={allUsers} onLogin={setCurrentUser} />;
-
   return (
     <div className="min-h-[100dvh] w-full bg-[#080c14] pb-[90px] text-slate-100 antialiased font-sans overflow-x-hidden">
       {/* Toast */}
