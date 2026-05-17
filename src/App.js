@@ -681,7 +681,7 @@ if (isSecretSetup && currentUser && currentUser.role === 'admin' && isMasterAdmi
   return <SetupScreen onSetup={handleSetup} />;
 }
 
-if (setupMode && fbUser && !setupDone && !isSecretSetup) return <SetupScreen onSetup={handleSetup} />;
+if (setupMode && fbUser && !setupDone) return <SetupScreen onSetup={handleSetup} />;
 if (!currentUser) return <AuthScreen allUsers={allUsers} onLogin={setCurrentUser} />;
   return (
     <div className="min-h-[100dvh] w-full bg-[#080c14] pb-[90px] text-slate-100 antialiased font-sans overflow-x-hidden">
