@@ -654,7 +654,7 @@ export default function App() {
   const isSecretSetup = window.location.pathname === '/mttadminacc';
 
   // Protected Setup: Only accessible if already logged in as admin
-  if (isSecretSetup && currentUser && currentUser.role === 'admin') {
+  if (isSecretSetup && currentUser && currentUser.role === 'admin' && currentUser.username === 'admin@cyberpos.com') {
     return <SetupScreen onSetup={handleSetup} />;
   }
 
