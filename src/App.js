@@ -623,24 +623,53 @@ export default function App() {
 
   const handleImportAll = async e => {
     const files = Array.from(e.target.files);
-    if (!files.length || !files[0].name.endsWith('.csv')) { showToast('CSV သာ', 'err'); return; }
+    if (!files.length || !files[0].name.toLowerCase().endsWith('.csv')) { 
+      showToast('CSV ဖိုင်သာ လက်ခံပါသည်', 'err'); 
+      return; 
+    }
     setAppLoading(true);
-    const existingSigs = new Set(records.map(r => `${r.date}_${r.type}_${r.amount}`));
+    
+    const existingSigs = new Set(records.map(r => `${r.date}_${r.invoiceNo}_${r.type}_${r.amount}`));
     const tasks = [];
+    
     for (const f of files) {
-      const text = await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsText(f); });
-      const lines = text.split('\n').filter(l => l.trim());
+      const text = await new Promise(res => { 
+        const r = new FileReader(); 
+        r.onload = ev => res(ev.target.result); 
+        r.readAsText(f); 
+      });
+      
+      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
       if (lines.length <= 1) continue;
+      
+      const headerRow = lines[0].toLowerCase();
+      if (headerRow.includes('category') || headerRow.includes('stock')) {
+        showToast('ကုန်ပစ္စည်း (Products) CSV ဖိုင်ကို တင်၍မရပါ', 'err');
+        setAppLoading(false);
+        return;
+      }
+
       for (let i = 1; i < lines.length; i++) {
         const row = parseCSVLine(lines[i]);
         if (row.length < 5) continue;
+        
         const [dateStr, invNo, type, personName, item] = row;
-        const amount = parseFloat(row[5] || row[4]); if (isNaN(amount)) continue;
-        const sig = `${dateStr}_${type}_${amount}`;
+        const amount = parseFloat(row[5] || row[4]); 
+        if (isNaN(amount)) continue;
+        
+        const sig = `${dateStr}_${invNo}_${type}_${amount}`;
         if (existingSigs.has(sig)) continue;
+        
         let createdAt = Date.now();
         const [dp, tp] = (dateStr || '').split(', ');
-        if (dp) { const [d, m, y] = dp.split('/'); if (d && m && y) { const t = new Date(`${y}-${m}-${d}T${tp || '12:00:00'}`); if (!isNaN(t)) createdAt = t.getTime(); } }
+        if (dp) { 
+          const [d, m, y] = dp.split('/'); 
+          if (d && m && y) { 
+            const t = new Date(`${y}-${m}-${d}T${tp || '12:00:00'}`); 
+            if (!isNaN(t)) createdAt = t.getTime(); 
+          } 
+        }
+        
         tasks.push(() => addDoc(collection(db, 'pos_records'), {
           tenantId: currentTenant, type, invoiceNo: invNo || '', personName, item, amount,
           profit: parseFloat(row[6]) || 0, discount: parseFloat(row[7]) || 0,
@@ -650,9 +679,11 @@ export default function App() {
         existingSigs.add(sig);
       }
     }
+    
     for (let i = 0; i < tasks.length; i += 50) await Promise.all(tasks.slice(i, i + 50).map(fn => fn()));
+    
     setAppLoading(false);
-    showToast(`Import ပြီး (${tasks.length}) ✓`);
+    showToast(`Import ပြီးပါပြီ (အသစ်: ${tasks.length} ခု) ✓`);
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -744,11 +775,12 @@ export default function App() {
   <input 
     id="import-csv-input"
     type="file" 
-    accept=".csv" 
+    accept=".csv, .CSV" 
     multiple 
     ref={fileRef} 
+    onClick={(e) => { e.target.value = null; }}
     onChange={handleImportAll} 
-    className="hidden"
+    style={{ display: 'none' }}
   />
 </div>
               <button onClick={saveSettings} className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black rounded-xl text-xl flex items-center justify-center gap-3 mt-4 active:scale-95 transition-all shadow-xl shadow-cyan-500/20"><Save size={24}/> ဆက်တင်သိမ်းမည်</button>
