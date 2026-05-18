@@ -730,10 +730,27 @@ export default function App() {
                 </div>
               </div>
               <div className="space-y-4 pt-4 border-t-2 border-white/5">
-                <button onClick={backupToTelegram} className="w-full py-4 bg-blue-600/20 border-2 border-blue-500/30 text-blue-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-blue-600/30 transition-all active:scale-95"><Cloud size={22}/> Backup to Telegram</button>
-                <button onClick={exportAllCSV} className="w-full py-4 bg-emerald-600/20 border-2 border-emerald-500/30 text-emerald-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-emerald-600/30 transition-all active:scale-95"><Download size={22}/> Export All CSV</button>
-                <label className="w-full py-4 bg-amber-600/20 border-2 border-amber-500/30 text-amber-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-amber-600/30 transition-all active:scale-95 cursor-pointer"><Upload size={22}/> Import Records CSV<input type="file" accept=".csv" multiple ref={fileRef} onChange={handleImportAll} className="hidden"/></label>
-              </div>
+  <button onClick={backupToTelegram} className="w-full py-4 bg-blue-600/20 border-2 border-blue-500/30 text-blue-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-blue-600/30 transition-all active:scale-95">
+    <Cloud size={22}/> Backup to Telegram
+  </button>
+  <button onClick={exportAllCSV} className="w-full py-4 bg-emerald-600/20 border-2 border-emerald-500/30 text-emerald-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-emerald-600/30 transition-all active:scale-95">
+    <Download size={22}/> Export All CSV
+  </button>
+  
+  {/* Import CSV - ပြင်ဆင်ထားသော အပိုင်း */}
+  <label htmlFor="import-csv-input" className="w-full py-4 bg-amber-600/20 border-2 border-amber-500/30 text-amber-400 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-amber-600/30 transition-all active:scale-95 cursor-pointer">
+    <Upload size={22}/> Import Records CSV
+  </label>
+  <input 
+    id="import-csv-input"
+    type="file" 
+    accept=".csv" 
+    multiple 
+    ref={fileRef} 
+    onChange={handleImportAll} 
+    className="hidden"
+  />
+</div>
               <button onClick={saveSettings} className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black rounded-xl text-xl flex items-center justify-center gap-3 mt-4 active:scale-95 transition-all shadow-xl shadow-cyan-500/20"><Save size={24}/> ဆက်တင်သိမ်းမည်</button>
             </div>
           </div>
