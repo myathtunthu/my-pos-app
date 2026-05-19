@@ -176,7 +176,6 @@ function MainApp() {
   const [allSettings, setAllSettings] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [appLoading, setAppLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const showToast = useCallback((msg, type = 'ok') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 4500);
@@ -429,7 +428,7 @@ function MainApp() {
     .map(r => { histBal += r.type === 'Sale' ? (Number(r.amount) || 0) : -(Number(r.amount) || 0); return { ...r, runningBal: histBal }; }).reverse();
 
   // ═══ RENDER LOGIC ═══
-  if (setupMode === null || authLoading || appLoading) return (
+  if (setupMode === null || authLoading) return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center">
       <Cpu className="text-cyan-500 animate-pulse" size={64} />
     </div>
